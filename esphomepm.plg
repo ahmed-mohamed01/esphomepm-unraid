@@ -15,6 +15,8 @@
 <CHANGES>
 ##&name;
 ###2025.05.07f
+- Added power usage graph
+
 ###2025.05.07e
 - Improved smooth transitions for value updates
 - Added cache for status data to reduce server load
