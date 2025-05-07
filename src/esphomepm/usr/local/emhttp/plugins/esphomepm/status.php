@@ -10,8 +10,9 @@ if ($esphomepm_device_ip == "") {
 
 $Url = "http://" . $esphomepm_device_ip;
 
+// Get data from each sensor
 $power = json_decode(file_get_contents($Url . "/sensor/power"), true);
-$energy = json_decode(file_get_contents($Url . "/sensor/daily_energy"), true);  // Changed from energy to daily_energy
+$energy = json_decode(file_get_contents($Url . "/sensor/daily_energy"), true);
 $voltage = json_decode(file_get_contents($Url . "/sensor/voltage"), true);
 $current = json_decode(file_get_contents($Url . "/sensor/current"), true);
 
@@ -20,7 +21,6 @@ $json = array(
 		'Power' => $power['state'],
 		'Voltage' => $voltage['state'],
 		'Current' => $current['state'],
-		'Factor' => $power_factor['state'],
 		'Costs_Price' => $esphomepm_costs_price,
 		'Costs_Unit' => $esphomepm_costs_unit
 	);
