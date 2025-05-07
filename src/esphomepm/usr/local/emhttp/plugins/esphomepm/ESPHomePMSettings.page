@@ -36,10 +36,10 @@ Unit for cost calculation:
 
 <style>
     .value-display {
-        transition: color 0.3s ease;
+        transition: all 0.3s ease;
     }
     .value-updated {
-        color: #4CAF50;
+        filter: brightness(1.5); /* Simple brightness increase that works with any theme */
     }
 </style>
 
@@ -291,7 +291,17 @@ function setupRefreshInterval() {
     }
     
     // Get the refresh rate from the input field
-    const refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
+    let refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
+    
+    // Enforce a minimum refresh rate of 2000ms to prevent overloading the ESPHome device
+    const MIN_REFRESH_RATE = 2000; // 2 seconds minimum
+    if (refreshRate < MIN_REFRESH_RATE) {
+        console.warn(`Refresh rate ${refreshRate}ms is too low and may overload the ESPHome device. Using ${MIN_REFRESH_RATE}ms instead.`);
+        refreshRate = MIN_REFRESH_RATE;
+        // Update the input field to show the actual value being used
+        document.getElementById('UIREFRESH').value = MIN_REFRESH_RATE;
+    }
+    
     console.log('Setting refresh rate to', refreshRate, 'ms');
     
     // Set up new interval if refresh rate is positive

@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.07d">
+<!ENTITY version   "2025.05.07e">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,6 +14,11 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.05.07e
+- Improved smooth transitions for value updates
+- Added cache for status data to reduce server load
+- fix: reduced server load to avoid memory issues on ESPHome device
+
 ###2025.05.07d
 - Added smooth transitions for value updates
 
