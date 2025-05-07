@@ -56,6 +56,10 @@ function resetDATA(form) {
   form.COSTS_UNIT.value = "GBP";
 }
 
+function done() {
+    window.location.href = '/Main';
+}
+
 // Function to update device status
 function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
