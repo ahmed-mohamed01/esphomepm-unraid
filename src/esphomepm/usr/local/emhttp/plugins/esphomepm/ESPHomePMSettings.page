@@ -60,7 +60,7 @@ function done() {
     window.location.href = '/Main';
 }
 
-// Function to update device status
+// Function to update device status using direct communication with ESPHome device
 function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
     if (!deviceIP) {
@@ -72,68 +72,61 @@ function updateDeviceStatus() {
     document.getElementById('statusText').textContent = 'Checking...';
     document.getElementById('sensorValues').style.display = 'none';
     
+    // Get configuration values
+    const costsPrice = document.getElementById('COSTS_PRICE').value || '0.27';
+    const costsUnit = document.getElementById('COSTS_UNIT').value || 'GBP';
+    
     // Add timestamp to prevent caching
     const timestamp = new Date().getTime();
     
-    // First try with test mode to see if the PHP script is accessible
-    fetch(`/plugins/esphomepm/status.php?test=true&t=${timestamp}`)
-        .then(response => {
+    // Function to fetch sensor data directly from ESPHome
+    async function fetchSensorData(sensorName) {
+        try {
+            const response = await fetch(`http://${deviceIP}/sensor/${sensorName}?t=${timestamp}`);
             if (!response.ok) {
-                console.error('Test response not OK:', response.status, response.statusText);
-                throw new Error(`Test request failed: ${response.status}`);
+                console.error(`Error fetching ${sensorName}:`, response.status);
+                return 0;
             }
-            return response.json();
-        })
-        .then(testData => {
-            console.log('Test data received:', testData);
-            
-            // Now make the actual request
-            return fetch(`/plugins/esphomepm/status.php?t=${timestamp}`);
-        })
-        .then(response => {
-            if (!response.ok) {
-                console.error('Response not OK:', response.status, response.statusText);
-                throw new Error(`Network response was not ok: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Status data received:', data);
-            
-            if (!data || typeof data !== 'object') {
-                throw new Error('Invalid data received');
-            }
-            
-            // Check if there's an error message
-            if (data.error) {
-                console.error('Error in data:', data.error);
-                document.getElementById('statusText').textContent = 'Error: ' + data.error;
-                document.getElementById('sensorValues').style.display = 'none';
-                return;
-            }
-            
-            // Check if we have valid power data (the most important value)
-            if (data.Power <= 0 && data.Voltage <= 0 && data.Current <= 0) {
-                console.error('No valid sensor data');
-                document.getElementById('statusText').textContent = 'No sensor data';
-                document.getElementById('sensorValues').style.display = 'none';
-                return;
-            }
-            
-            document.getElementById('statusText').textContent = 'Connected';
-            document.getElementById('sensorValues').style.display = 'block';
-            
-            // Format numbers to 2 decimal places
-            document.getElementById('currentPower').textContent = Number(data.Power).toFixed(2);
-            document.getElementById('dailyEnergy').textContent = Number(data.Total).toFixed(2);
-            document.getElementById('voltage').textContent = Number(data.Voltage).toFixed(2);
-            document.getElementById('current').textContent = Number(data.Current).toFixed(2);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('statusText').textContent = 'Disconnected (Error)';
+            const data = await response.json();
+            console.log(`${sensorName} data:`, data);
+            return data.value || 0;
+        } catch (error) {
+            console.error(`Error fetching ${sensorName}:`, error);
+            return 0;
+        }
+    }
+    
+    // Fetch all sensor data in parallel
+    Promise.all([
+        fetchSensorData('power'),
+        fetchSensorData('daily_energy').then(value => value || fetchSensorData('energy_today')),
+        fetchSensorData('voltage'),
+        fetchSensorData('current')
+    ])
+    .then(([power, dailyEnergy, voltage, current]) => {
+        // Check if we got any valid data
+        if (power <= 0 && voltage <= 0 && current <= 0) {
+            console.error('No valid sensor data');
+            document.getElementById('statusText').textContent = 'No sensor data';
             document.getElementById('sensorValues').style.display = 'none';
-        });
+            return;
+        }
+        
+        // Update UI with sensor values
+        document.getElementById('statusText').textContent = 'Connected';
+        document.getElementById('sensorValues').style.display = 'block';
+        
+        // Format numbers to 2 decimal places
+        document.getElementById('currentPower').textContent = Number(power).toFixed(2);
+        document.getElementById('dailyEnergy').textContent = Number(dailyEnergy).toFixed(2);
+        document.getElementById('voltage').textContent = Number(voltage).toFixed(2);
+        document.getElementById('current').textContent = Number(current).toFixed(2);
+    })
+    .catch(error => {
+        console.error('Error fetching sensor data:', error);
+        document.getElementById('statusText').textContent = 'Disconnected';
+        document.getElementById('sensorValues').style.display = 'none';
+    });
 }
 
 // Update status when page loads
