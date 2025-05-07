@@ -1,6 +1,6 @@
 Menu="Utilities"
-Icon="tasmotapm.png"
-Title="Tasmota Power Monitor"
+Icon="esphomepm.png"
+Title="ESPHome Power Monitor"
 ---
 <?php
 $esphomepm_cfg = parse_plugin_cfg("esphomepm",true);
