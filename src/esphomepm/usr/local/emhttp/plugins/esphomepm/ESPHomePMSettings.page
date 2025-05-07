@@ -22,7 +22,7 @@ Device IP:
 
 
 UI Refresh rate (Milliseconds):
-: <input type="text" name="UIREFRESH" class="narrow" maxlength="50" value="<?=$esphomepm_uirefresh;?>" placeholder="1000">
+: <input type="text" id="UIREFRESH" name="UIREFRESH" class="narrow" maxlength="50" value="<?=$esphomepm_uirefresh;?>" placeholder="1000">
 
 Price per kWh for cost calculation:
 : <input id="COSTS_PRICE" type="text" class="stopped" name="COSTS_PRICE" maxlength="10" value="<?=$esphomepm_costs_price;?>" title="" placeholder="0.00" >  
@@ -31,7 +31,7 @@ Unit for cost calculation:
 : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
 
  <input id="DEFAULT" class="stopped" type="submit" value="Default" onClick="resetDATA(this.form)">
-: <input id="btnApply" type="submit" value="Apply"><input type="button" value="Done" onClick="done()">
+: <input id="btnApply" type="submit" value="Apply" onClick="applySettings(this.form)"><input type="button" value="Done" onClick="done()">
 </form>
 
 <div id="deviceStatus" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; display: none;">
@@ -251,37 +251,77 @@ async function updateDeviceStatus() {
     }
 }
 
-// Update power data when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    // Initial update
-    updateDeviceStatus();
-    
-    // Set up auto-refresh based on the configured refresh rate
-    let refreshInterval;
-    
-    function setupRefreshInterval() {
-        // Clear any existing interval
-        if (refreshInterval) {
-            clearInterval(refreshInterval);
-        }
-        
-        // Get the refresh rate from the input field
-        const refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
-        console.log('Setting refresh rate to', refreshRate, 'ms');
-        
-        // Set up new interval if refresh rate is positive
-        if (refreshRate > 0) {
-            refreshInterval = setInterval(() => {
-                updateDeviceStatus();
-            }, refreshRate);
-        }
+// Global variable for refresh interval
+let refreshInterval;
+
+// Function to set up the refresh interval
+function setupRefreshInterval() {
+    // Clear any existing interval
+    if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
     }
     
-    // Initial setup
+    // Get the refresh rate from the input field
+    const refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
+    console.log('Setting refresh rate to', refreshRate, 'ms');
+    
+    // Set up new interval if refresh rate is positive
+    if (refreshRate > 0) {
+        // Immediate update
+        updateDeviceStatus();
+        
+        // Set interval for future updates
+        refreshInterval = setInterval(updateDeviceStatus, refreshRate);
+    }
+}
+
+// Function to apply settings without page reload
+function applySettings(form) {
+    // Prevent the default form submission which would reload the page
+    event.preventDefault();
+    
+    // Get the form data
+    const formData = new FormData(form);
+    
+    // Send the form data to the server
+    fetch('/update.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to save settings');
+        }
+        return response.text();
+    })
+    .then(() => {
+        // Update the refresh interval immediately
+        setupRefreshInterval();
+        
+        // Show a success message
+        alert('Settings applied successfully!');
+    })
+    .catch(error => {
+        console.error('Error applying settings:', error);
+        alert('Failed to apply settings: ' + error.message);
+    });
+    
+    return false;
+}
+
+// Update power data when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    // Initial setup of refresh interval
     setupRefreshInterval();
     
-    // Update interval when refresh rate changes
-    document.getElementById('UIREFRESH').addEventListener('change', setupRefreshInterval);
+    // Update interval when refresh rate changes directly
+    document.getElementById('UIREFRESH').addEventListener('input', function() {
+        // Only update if the field is not empty
+        if (this.value.trim() !== '') {
+            setupRefreshInterval();
+        }
+    });
 });
 
 // Update power data when IP changes
