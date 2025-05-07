@@ -34,20 +34,29 @@ Unit for cost calculation:
 : <input id="btnApply" type="submit" value="Apply" onClick="applySettings(this.form)"><input type="button" value="Done" onClick="done()">
 </form>
 
+<style>
+    .value-display {
+        transition: color 0.3s ease;
+    }
+    .value-updated {
+        color: #4CAF50;
+    }
+</style>
+
 <div id="deviceStatus" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; display: none;">
     <h3>Power Monitoring</h3>
     <div id="sensorValues">
         <h4>Current Readings</h4>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
-                <p>Current Power: <span id="currentPower">--</span> W</p>
-                <p>Daily Energy: <span id="dailyEnergy">--</span> kWh</p>
-                <p>Voltage: <span id="voltage">--</span> V</p>
-                <p>Current: <span id="current">--</span> A</p>
+                <p>Current Power: <span id="currentPower" class="value-display">--</span> W</p>
+                <p>Daily Energy: <span id="dailyEnergy" class="value-display">--</span> kWh</p>
+                <p>Voltage: <span id="voltage" class="value-display">--</span> V</p>
+                <p>Current: <span id="current" class="value-display">--</span> A</p>
             </div>
             <div>
-                <p>Daily Cost: <span id="dailyCost">--</span> <span id="costUnit">--</span></p>
-                <p>Monthly Cost (Est.): <span id="monthlyCost">--</span> <span id="costUnitMonthly">--</span></p>
+                <p>Daily Cost: <span id="dailyCost" class="value-display">--</span> <span id="costUnit">--</span></p>
+                <p>Monthly Cost (Est.): <span id="monthlyCost" class="value-display">--</span> <span id="costUnitMonthly">--</span></p>
                 <p>Monitoring Since: <span id="monitoringSince">--</span></p>
             </div>
         </div>
@@ -226,19 +235,38 @@ async function updateDeviceStatus() {
         const costPrice = parseFloat(data.Costs_Price) || 0.27;
         const costUnit = data.Costs_Unit || 'GBP';
         
-        // Format numbers to 2 decimal places
-        document.getElementById('currentPower').textContent = Number(data.Power).toFixed(2);
-        document.getElementById('dailyEnergy').textContent = Number(data.Total).toFixed(2);
-        document.getElementById('voltage').textContent = Number(data.Voltage).toFixed(2);
-        document.getElementById('current').textContent = Number(data.Current).toFixed(2);
+        // Function to update a value with smooth transition
+        function updateValueWithTransition(elementId, newValue, decimals = 2) {
+            const element = document.getElementById(elementId);
+            const formattedValue = Number(newValue).toFixed(decimals);
+            
+            // Only apply transition if value has changed
+            if (element.textContent !== formattedValue) {
+                element.textContent = formattedValue;
+                element.classList.add('value-updated');
+                
+                // Remove the highlight class after transition completes
+                setTimeout(() => {
+                    element.classList.remove('value-updated');
+                }, 500);
+            }
+        }
+        
+        // Update all values with smooth transitions
+        updateValueWithTransition('currentPower', data.Power);
+        updateValueWithTransition('dailyEnergy', data.Total);
+        updateValueWithTransition('voltage', data.Voltage);
+        updateValueWithTransition('current', data.Current);
         
         // Calculate and display costs
         const dailyEnergy = Number(data.Total);
         const dailyCost = dailyEnergy * costPrice;
         const monthlyCost = dailyCost * 30; // Estimate based on 30 days
         
-        document.getElementById('dailyCost').textContent = dailyCost.toFixed(2);
-        document.getElementById('monthlyCost').textContent = monthlyCost.toFixed(2);
+        updateValueWithTransition('dailyCost', dailyCost);
+        updateValueWithTransition('monthlyCost', monthlyCost);
+        
+        // Update units
         document.getElementById('costUnit').textContent = costUnit;
         document.getElementById('costUnitMonthly').textContent = costUnit;
         document.getElementById('totalCostUnit').textContent = costUnit;
