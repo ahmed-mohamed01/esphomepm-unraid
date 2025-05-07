@@ -3,7 +3,7 @@
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed-mohamed01">
 <!ENTITY version   "2025.05.07">
-<!ENTITY launch    "Settings/TasmotaPMSettings">
+<!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/Flippo24/&name;-unraid/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY pkgURL    "&gitURL;/pkg">
