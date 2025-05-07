@@ -1,19 +1,17 @@
 <?php
-// Enable error reporting for debugging
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Basic error handling
+ini_set('display_errors', 0);
+error_reporting(0);
 
-// Set headers to prevent caching and allow cross-origin requests
+// Set content type to JSON
+header('Content-Type: application/json');
+
+// Set cache control headers
 header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-header('Cache-Control: post-check=0, pre-check=0', false);
 header('Pragma: no-cache');
-header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: GET, POST');
-header('Access-Control-Allow-Headers: Content-Type');
 
 // Test mode - return dummy data for testing
 if (isset($_GET['test']) && $_GET['test'] === 'true') {
-    header('Content-Type: application/json');
     echo json_encode([
         'Power' => 35.08,
         'Total' => 0.6,
@@ -25,133 +23,94 @@ if (isset($_GET['test']) && $_GET['test'] === 'true') {
     exit;
 }
 
-// Load configuration using parse_plugin_cfg
+// Load configuration
 $esphomepm_cfg = parse_plugin_cfg("esphomepm", true);
 
-// Get configuration values with defaults
-$esphomepm_device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
-$esphomepm_costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.27";
-$esphomepm_costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
-
-// Debug information
-$debug = [];
-$debug['device_ip'] = $esphomepm_device_ip;
-$debug['php_version'] = phpversion();
-$debug['server_software'] = $_SERVER['SERVER_SOFTWARE'];
+// Get configuration values
+$device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
+$costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.27";
+$costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
 
 // Check if device IP is set
-if (empty($esphomepm_device_ip)) {
-    header('Content-Type: application/json');
+if (empty($device_ip)) {
     echo json_encode([
         'error' => 'ESPHome Device IP missing',
-        'debug' => $debug
+        'Power' => 0,
+        'Total' => 0,
+        'Voltage' => 0,
+        'Current' => 0,
+        'Costs_Price' => $costs_price,
+        'Costs_Unit' => $costs_unit
     ]);
     exit;
 }
 
-// Set the base URL for the ESPHome device
-$baseUrl = "http://" . $esphomepm_device_ip;
-$debug['base_url'] = $baseUrl;
-
 // Initialize curl
 $ch = curl_init();
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_HTTPHEADER, ['Accept: application/json']);
-curl_setopt($ch, CURLOPT_TIMEOUT, 5);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // Follow redirects
+curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
 
-// Function to get sensor value - using the exact format from the curl response
-function getSensorValue($ch, $url, &$debug, $sensorName) {
+// Base URL for the ESPHome device
+$baseUrl = "http://" . $device_ip;
+
+// Function to get sensor value
+function getSensorValue($ch, $url) {
     curl_setopt($ch, CURLOPT_URL, $url);
     $response = curl_exec($ch);
     
-    $debug[$sensorName . '_url'] = $url;
-    $debug[$sensorName . '_response'] = substr($response, 0, 100); // Limit debug output
-    $debug[$sensorName . '_http_code'] = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    
     if (curl_errno($ch)) {
-        $debug[$sensorName . '_error'] = curl_error($ch);
         return 0;
     }
     
-    // Parse the JSON response - format: {"id":"sensor-power","value":35.08036,"state":"35 W"}
     $data = json_decode($response, true);
     if (isset($data['value'])) {
         return floatval($data['value']);
-    } elseif (isset($data['state'])) {
-        // Try to extract numeric value from state
-        $numericValue = preg_replace('/[^0-9.]/', '', $data['state']);
-        return floatval($numericValue);
     }
     
     return 0;
 }
 
-// Try to connect to the device first
+// Check if we can connect to the device
 curl_setopt($ch, CURLOPT_URL, $baseUrl);
 $response = curl_exec($ch);
-$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 
-$debug['main_connection'] = [
-    'http_code' => $httpCode,
-    'curl_error' => curl_error($ch),
-    'response' => substr($response, 0, 100)
-];
-
-// If we can't connect to the device
-if (curl_errno($ch) || $httpCode >= 400) {
+if (curl_errno($ch)) {
     curl_close($ch);
-    header('Content-Type: application/json');
     echo json_encode([
-        'error' => 'Cannot connect to ESPHome device at ' . $baseUrl,
+        'error' => 'Cannot connect to ESPHome device',
         'Power' => 0,
         'Total' => 0,
         'Voltage' => 0,
         'Current' => 0,
-        'Costs_Price' => $esphomepm_costs_price,
-        'Costs_Unit' => $esphomepm_costs_unit,
-        'debug' => $debug
+        'Costs_Price' => $costs_price,
+        'Costs_Unit' => $costs_unit
     ]);
     exit;
 }
 
-// Get Power - we know this works from the curl test
-$power = getSensorValue($ch, $baseUrl . "/sensor/power", $debug, 'power');
+// Get sensor values
+$power = getSensorValue($ch, $baseUrl . "/sensor/power");
+$daily_energy = getSensorValue($ch, $baseUrl . "/sensor/daily_energy");
 
-// Try different variations of daily energy sensor names
-$daily_energy = 0;
-$energy_sensors = ['daily_energy', 'energy_today', 'today_energy', 'daily_consumption'];
-foreach ($energy_sensors as $sensor) {
-    $value = getSensorValue($ch, $baseUrl . "/sensor/" . $sensor, $debug, $sensor);
-    if ($value > 0) {
-        $daily_energy = $value;
-        $debug['used_energy_sensor'] = $sensor;
-        break;
-    }
+// Try alternative sensor name if daily_energy returns 0
+if ($daily_energy == 0) {
+    $daily_energy = getSensorValue($ch, $baseUrl . "/sensor/energy_today");
 }
 
-// Get Voltage
-$voltage = getSensorValue($ch, $baseUrl . "/sensor/voltage", $debug, 'voltage');
-
-// Get Current
-$current = getSensorValue($ch, $baseUrl . "/sensor/current", $debug, 'current');
+$voltage = getSensorValue($ch, $baseUrl . "/sensor/voltage");
+$current = getSensorValue($ch, $baseUrl . "/sensor/current");
 
 curl_close($ch);
 
-// Log the values for debugging
-error_log("ESPHome values - Power: $power, Daily Energy: $daily_energy, Voltage: $voltage, Current: $current");
-
-$response = array(
+// Return the data
+echo json_encode([
     'Power' => $power,
     'Total' => $daily_energy,
     'Voltage' => $voltage,
     'Current' => $current,
-    'Costs_Price' => $esphomepm_costs_price,
-    'Costs_Unit' => $esphomepm_costs_unit,
-    'debug' => $debug
-);
-
-header('Content-Type: application/json');
-echo json_encode($response);
+    'Costs_Price' => $costs_price,
+    'Costs_Unit' => $costs_unit
+]);
 ?>
