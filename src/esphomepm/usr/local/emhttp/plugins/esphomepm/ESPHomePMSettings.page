@@ -71,17 +71,38 @@ function updateDeviceStatus() {
     document.getElementById('deviceStatus').style.display = 'block';
     document.getElementById('statusText').textContent = 'Checking...';
     document.getElementById('sensorValues').style.display = 'none';
-
-    fetch(`/plugins/esphomepm/status.php`)
+    
+    // Add timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    fetch(`/plugins/esphomepm/status.php?t=${timestamp}`)
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok');
+                console.error('Response not OK:', response.status, response.statusText);
+                throw new Error(`Network response was not ok: ${response.status}`);
             }
             return response.json();
         })
         .then(data => {
+            console.log('Status data received:', data);
+            
             if (!data || typeof data !== 'object') {
                 throw new Error('Invalid data received');
+            }
+            
+            // Check if there's an error message
+            if (data.error) {
+                console.error('Error in data:', data.error);
+                document.getElementById('statusText').textContent = 'Error: ' + data.error;
+                document.getElementById('sensorValues').style.display = 'none';
+                return;
+            }
+            
+            // Check if we have valid sensor data
+            if (data.success === false) {
+                console.error('Data indicates failure');
+                document.getElementById('statusText').textContent = 'Disconnected';
+                document.getElementById('sensorValues').style.display = 'none';
+                return;
             }
             
             document.getElementById('statusText').textContent = 'Connected';
@@ -95,7 +116,7 @@ function updateDeviceStatus() {
         })
         .catch(error => {
             console.error('Error:', error);
-            document.getElementById('statusText').textContent = 'Disconnected';
+            document.getElementById('statusText').textContent = 'Disconnected (Error)';
             document.getElementById('sensorValues').style.display = 'none';
         });
 }
