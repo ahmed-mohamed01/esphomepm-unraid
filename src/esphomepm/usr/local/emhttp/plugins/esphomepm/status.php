@@ -8,9 +8,8 @@ header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
 header('Cache-Control: post-check=0, pre-check=0', false);
 header('Pragma: no-cache');
 
-// Load configuration
-$config_file = "/boot/config/plugins/esphomepm/esphomepm.cfg";
-$esphomepm_cfg = file_exists($config_file) ? parse_ini_file($config_file) : [];
+// Load configuration using parse_plugin_cfg (same method as in ESPHomePMSettings.page)
+$esphomepm_cfg = parse_plugin_cfg("esphomepm", true);
 
 // Get configuration values with defaults
 $esphomepm_device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
@@ -19,8 +18,7 @@ $esphomepm_costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['CO
 
 // Debug information
 $debug = [];
-$debug['config_file_exists'] = file_exists($config_file);
-$debug['config_file_path'] = $config_file;
+$debug['config_source'] = 'parse_plugin_cfg';
 $debug['device_ip'] = $esphomepm_device_ip;
 
 // Check if device IP is set
