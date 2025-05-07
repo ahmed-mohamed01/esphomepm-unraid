@@ -1,9 +1,7 @@
-
-
 <?php
-// Enable error display for debugging
-ini_set('display_errors', 1);
-error_reporting(E_ALL);
+// Basic error handling
+ini_set('display_errors', 0);
+error_reporting(0);
 
 // Set content type to JSON
 header('Content-Type: application/json');
@@ -25,18 +23,18 @@ if (isset($_GET['test']) && $_GET['test'] === 'true') {
     exit;
 }
 
-// Load configuration directly from the file
+// Get device IP from config file
 $config_file = "/boot/config/plugins/esphomepm/esphomepm.cfg";
-$esphomepm_cfg = [];
+$device_ip = "";
+$costs_price = "0.27";
+$costs_unit = "GBP";
 
 if (file_exists($config_file)) {
-    $esphomepm_cfg = parse_ini_file($config_file);
+    $config = parse_ini_file($config_file);
+    $device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : "";
+    $costs_price = isset($config['COSTS_PRICE']) ? $config['COSTS_PRICE'] : "0.27";
+    $costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 }
-
-// Get configuration values
-$device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
-$costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.27";
-$costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
 
 // Check if device IP is set
 if (empty($device_ip)) {
@@ -52,39 +50,34 @@ if (empty($device_ip)) {
     exit;
 }
 
-// Initialize curl
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 3);
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
-
-// Base URL for the ESPHome device
-$baseUrl = "http://" . $device_ip;
-
 // Function to get sensor value
-function getSensorValue($ch, $url) {
-    curl_setopt($ch, CURLOPT_URL, $url);
+function getSensorValue($sensor, $device_ip) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "http://$device_ip/sensor/$sensor");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
     $response = curl_exec($ch);
+    $curl_error = curl_errno($ch);
+    curl_close($ch);
     
-    if (curl_errno($ch)) {
-        return 0;
-    }
+    if ($curl_error) return 0;
     
     $data = json_decode($response, true);
-    if (isset($data['value'])) {
-        return floatval($data['value']);
-    }
-    
-    return 0;
+    return isset($data['value']) ? floatval($data['value']) : 0;
 }
 
 // Check if we can connect to the device
-curl_setopt($ch, CURLOPT_URL, $baseUrl);
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, "http://$device_ip");
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_TIMEOUT, 3);
+curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
 $response = curl_exec($ch);
+$curl_error = curl_errno($ch);
+curl_close($ch);
 
-if (curl_errno($ch)) {
-    curl_close($ch);
+if ($curl_error) {
     echo json_encode([
         'error' => 'Cannot connect to ESPHome device',
         'Power' => 0,
@@ -98,18 +91,16 @@ if (curl_errno($ch)) {
 }
 
 // Get sensor values
-$power = getSensorValue($ch, $baseUrl . "/sensor/power");
-$daily_energy = getSensorValue($ch, $baseUrl . "/sensor/daily_energy");
+$power = getSensorValue('power', $device_ip);
+$daily_energy = getSensorValue('daily_energy', $device_ip);
 
 // Try alternative sensor name if daily_energy returns 0
 if ($daily_energy == 0) {
-    $daily_energy = getSensorValue($ch, $baseUrl . "/sensor/energy_today");
+    $daily_energy = getSensorValue('energy_today', $device_ip);
 }
 
-$voltage = getSensorValue($ch, $baseUrl . "/sensor/voltage");
-$current = getSensorValue($ch, $baseUrl . "/sensor/current");
-
-curl_close($ch);
+$voltage = getSensorValue('voltage', $device_ip);
+$current = getSensorValue('current', $device_ip);
 
 // Return the data
 echo json_encode([
