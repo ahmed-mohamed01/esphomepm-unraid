@@ -8,7 +8,7 @@ Icon="esphomepm.png"
     ?>
     #dash_esphomepm_settings i, #esphomepm_view {margin-top:0px;}
 </style>
-<table id='db-box1' class='dash_esphomepm dashboard box1' style="display:none">
+<table id='db-box1' class='dash_esphomepm dashboard box1'>
     <thead sort='<?=$sortnr?>'>
 	    <tr class='hidden'>
 		    <td></td>
@@ -107,18 +107,20 @@ const esphomepm_status = () => {
         }
     });
 };
-$(esphomepm_status);
-if (<?=$esphomepm_cfg['UIREFRESH'];?>) {
-    setInterval(esphomepm_status, <?=$esphomepm_cfg['UIREFRESH'];?>);
-}
-$(function() {
-  // append data from the table into the correct one
-  $("#db-box1").append($(".dash_esphomepm").html());
-  
-  // reload toggle to get the correct state
-  toggleView('esphomepm_view',true);
-  
-  // reload sorting to get the stored data (cookie)
-  sortTable($('#db-box1'),$.cookie('db-box1'));
+
+$(document).ready(function() {
+    // Initial status update
+    esphomepm_status();
+    
+    // Set up refresh interval if configured
+    if (<?=$esphomepm_cfg['UIREFRESH'];?>) {
+        setInterval(esphomepm_status, <?=$esphomepm_cfg['UIREFRESH'];?>);
+    }
+    
+    // Initialize toggle view state
+    toggleView('esphomepm_view', true);
+    
+    // Initialize sorting
+    sortTable($('#db-box1'), $.cookie('db-box1'));
 });
 </script>
