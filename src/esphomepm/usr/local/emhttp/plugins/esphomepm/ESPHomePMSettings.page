@@ -40,10 +40,42 @@ Unit for cost calculation:
         Status: <span id="statusText">Checking...</span>
     </div>
     <div id="sensorValues" style="display: none;">
-        <p>Current Power: <span id="currentPower">--</span> W</p>
-        <p>Daily Energy: <span id="dailyEnergy">--</span> kWh</p>
-        <p>Voltage: <span id="voltage">--</span> V</p>
-        <p>Current: <span id="current">--</span> A</p>
+        <h4>Current Readings</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <p>Current Power: <span id="currentPower">--</span> W</p>
+                <p>Daily Energy: <span id="dailyEnergy">--</span> kWh</p>
+                <p>Voltage: <span id="voltage">--</span> V</p>
+                <p>Current: <span id="current">--</span> A</p>
+            </div>
+            <div>
+                <p>Daily Cost: <span id="dailyCost">--</span> <span id="costUnit">--</span></p>
+                <p>Monthly Cost (Est.): <span id="monthlyCost">--</span> <span id="costUnitMonthly">--</span></p>
+                <p>Monitoring Since: <span id="monitoringSince">--</span></p>
+            </div>
+        </div>
+        
+        <h4 style="margin-top: 20px;">Monthly Costs</h4>
+        <div id="monthlyCostsContainer" style="margin-top: 10px;">
+            <table id="monthlyCostsTable" class="tablesorter" style="width: 100%;">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th>Energy (kWh)</th>
+                        <th>Cost</th>
+                    </tr>
+                </thead>
+                <tbody id="monthlyCostsBody">
+                    <!-- Monthly cost data will be inserted here -->
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <td colspan="2"><strong>Total since <span id="totalSinceDate">--</span>:</strong></td>
+                        <td><strong><span id="totalCost">--</span> <span id="totalCostUnit">--</span></strong></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -60,8 +92,112 @@ function done() {
     window.location.href = '/Main';
 }
 
+// Function to load monthly cost data from server
+async function loadMonthlyCostData() {
+    try {
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}`);
+        if (!response.ok) {
+            throw new Error(`Failed to load monthly data: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error loading monthly data:', error);
+        // Return empty data structure if loading fails
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        const startDate = now.toISOString().split('T')[0];
+        
+        const initialData = {
+            startDate: startDate,
+            months: {}
+        };
+        initialData.months[currentMonth] = { energy: 0, cost: 0 };
+        
+        return initialData;
+    }
+}
+
+// Function to update monthly cost data with today's reading
+async function updateMonthlyCostData(dailyEnergy, costPrice) {
+    try {
+        // Send the update to the server
+        const response = await fetch('/plugins/esphomepm/monthly_data.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                dailyEnergy: dailyEnergy,
+                costPrice: costPrice
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update monthly data: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        
+        return result.data;
+    } catch (error) {
+        console.error('Error updating monthly data:', error);
+        // If update fails, just return the current data
+        return await loadMonthlyCostData();
+    }
+}
+
+// Function to display monthly cost data in the table
+function displayMonthlyCostData(data, costUnit) {
+    const tableBody = document.getElementById('monthlyCostsBody');
+    tableBody.innerHTML = '';
+    
+    // Sort months in descending order
+    const sortedMonths = Object.keys(data.months).sort().reverse();
+    
+    let totalCost = 0;
+    let totalEnergy = 0;
+    
+    sortedMonths.forEach(month => {
+        const monthData = data.months[month];
+        const row = document.createElement('tr');
+        
+        // Format month for display (YYYY-MM to Month YYYY)
+        const [year, monthNum] = month.split('-');
+        const monthDate = new Date(year, parseInt(monthNum) - 1, 1);
+        const monthName = monthDate.toLocaleString('default', { month: 'long' });
+        const displayMonth = `${monthName} ${year}`;
+        
+        row.innerHTML = `
+            <td>${displayMonth}</td>
+            <td>${monthData.energy.toFixed(2)}</td>
+            <td>${monthData.cost.toFixed(2)} ${costUnit}</td>
+        `;
+        
+        tableBody.appendChild(row);
+        
+        totalCost += monthData.cost;
+        totalEnergy += monthData.energy;
+    });
+    
+    // Update the total
+    document.getElementById('totalCost').textContent = totalCost.toFixed(2);
+    document.getElementById('totalCostUnit').textContent = costUnit;
+    
+    // Format the start date
+    const startDate = new Date(data.startDate);
+    const startMonth = startDate.toLocaleString('default', { month: 'long' });
+    document.getElementById('totalSinceDate').textContent = `${startMonth} ${startDate.getFullYear()}`;
+    document.getElementById('monitoringSince').textContent = startDate.toLocaleDateString();
+    
+    return { totalCost, totalEnergy };
+}
+
 // Function to update device status using our PHP proxy
-function updateDeviceStatus() {
+async function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
     if (!deviceIP) {
         document.getElementById('deviceStatus').style.display = 'none';
@@ -72,58 +208,82 @@ function updateDeviceStatus() {
     document.getElementById('statusText').textContent = 'Checking...';
     document.getElementById('sensorValues').style.display = 'none';
     
-    // Add timestamp to prevent caching
-    const timestamp = new Date().getTime();
-    
-    // Use our PHP proxy to get the data
-    fetch(`/plugins/esphomepm/status.php?t=${timestamp}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Network response was not ok: ${response.status}`);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Status data received:', data);
-            
-            // Check if there's an error message
-            if (data.error) {
-                console.error('Error in data:', data.error);
-                document.getElementById('statusText').textContent = 'Error: ' + data.error;
-                document.getElementById('sensorValues').style.display = 'none';
-                return;
-            }
-            
-            // Check if we have valid power data
-            if (data.Power <= 0 && data.Voltage <= 0 && data.Current <= 0) {
-                console.error('No valid sensor data');
-                document.getElementById('statusText').textContent = 'No sensor data';
-                document.getElementById('sensorValues').style.display = 'none';
-                return;
-            }
-            
-            // Update UI with sensor values
-            document.getElementById('statusText').textContent = 'Connected';
-            document.getElementById('sensorValues').style.display = 'block';
-            
-            // Format numbers to 2 decimal places
-            document.getElementById('currentPower').textContent = Number(data.Power).toFixed(2);
-            document.getElementById('dailyEnergy').textContent = Number(data.Total).toFixed(2);
-            document.getElementById('voltage').textContent = Number(data.Voltage).toFixed(2);
-            document.getElementById('current').textContent = Number(data.Current).toFixed(2);
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            document.getElementById('statusText').textContent = 'Disconnected';
+    try {
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        
+        // Use our PHP proxy to get the data
+        const response = await fetch(`/plugins/esphomepm/status.php?t=${timestamp}`);
+        if (!response.ok) {
+            throw new Error(`Network response was not ok: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('Status data received:', data);
+        
+        // Check if there's an error message
+        if (data.error) {
+            console.error('Error in data:', data.error);
+            document.getElementById('statusText').textContent = 'Error: ' + data.error;
             document.getElementById('sensorValues').style.display = 'none';
-        });
+            return;
+        }
+        
+        // Check if we have valid power data
+        if (data.Power <= 0 && data.Voltage <= 0 && data.Current <= 0) {
+            console.error('No valid sensor data');
+            document.getElementById('statusText').textContent = 'No sensor data';
+            document.getElementById('sensorValues').style.display = 'none';
+            return;
+        }
+        
+        // Update UI with sensor values
+        document.getElementById('statusText').textContent = 'Connected';
+        document.getElementById('sensorValues').style.display = 'block';
+        
+        // Get cost price and unit
+        const costPrice = parseFloat(data.Costs_Price) || 0.27;
+        const costUnit = data.Costs_Unit || 'GBP';
+        
+        // Format numbers to 2 decimal places
+        document.getElementById('currentPower').textContent = Number(data.Power).toFixed(2);
+        document.getElementById('dailyEnergy').textContent = Number(data.Total).toFixed(2);
+        document.getElementById('voltage').textContent = Number(data.Voltage).toFixed(2);
+        document.getElementById('current').textContent = Number(data.Current).toFixed(2);
+        
+        // Calculate and display costs
+        const dailyEnergy = Number(data.Total);
+        const dailyCost = dailyEnergy * costPrice;
+        const monthlyCost = dailyCost * 30; // Estimate based on 30 days
+        
+        document.getElementById('dailyCost').textContent = dailyCost.toFixed(2);
+        document.getElementById('monthlyCost').textContent = monthlyCost.toFixed(2);
+        document.getElementById('costUnit').textContent = costUnit;
+        document.getElementById('costUnitMonthly').textContent = costUnit;
+        document.getElementById('totalCostUnit').textContent = costUnit;
+        
+        // Update monthly data on the server
+        const monthlyData = await updateMonthlyCostData(dailyEnergy, costPrice);
+        displayMonthlyCostData(monthlyData, costUnit);
+    } catch (error) {
+        console.error('Error:', error);
+        document.getElementById('statusText').textContent = 'Disconnected';
+        document.getElementById('sensorValues').style.display = 'none';
+    }
 }
 
 // Update status when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    // Initial update
     updateDeviceStatus();
-    // Update status every 5 seconds
-    setInterval(updateDeviceStatus, 5000);
+    
+    // Set up auto-refresh
+    const refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
+    if (refreshRate > 0) {
+        setInterval(() => {
+            updateDeviceStatus();
+        }, refreshRate);
+    }
 });
 
 // Update status when IP changes
