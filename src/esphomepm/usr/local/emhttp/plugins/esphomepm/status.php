@@ -1,7 +1,7 @@
 <?php
-// Basic error handling
-ini_set('display_errors', 0);
-error_reporting(0);
+// Enable error display for debugging
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
 
 // Set content type to JSON
 header('Content-Type: application/json');
@@ -23,8 +23,13 @@ if (isset($_GET['test']) && $_GET['test'] === 'true') {
     exit;
 }
 
-// Load configuration
-$esphomepm_cfg = parse_plugin_cfg("esphomepm", true);
+// Load configuration directly from the file
+$config_file = "/boot/config/plugins/esphomepm/esphomepm.cfg";
+$esphomepm_cfg = [];
+
+if (file_exists($config_file)) {
+    $esphomepm_cfg = parse_ini_file($config_file);
+}
 
 // Get configuration values
 $device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
