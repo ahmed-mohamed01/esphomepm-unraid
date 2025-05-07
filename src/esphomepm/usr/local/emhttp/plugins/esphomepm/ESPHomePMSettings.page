@@ -61,6 +61,11 @@ Unit for cost calculation:
             </div>
         </div>
         
+        <h4 style="margin-top: 20px;">Power Usage Graph</h4>
+        <div id="powerGraphContainer" style="margin-top: 10px; height: 250px;">
+            <canvas id="powerGraph"></canvas>
+        </div>
+        
         <h4 style="margin-top: 20px;">Monthly Costs</h4>
         <div id="monthlyCostsContainer" style="margin-top: 10px;">
             <table id="monthlyCostsTable" class="tablesorter" style="width: 100%;">
@@ -84,6 +89,9 @@ Unit for cost calculation:
         </div>
     </div>
 </div>
+
+<!-- Include Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 
 <script type="text/javascript">
 function resetDATA(form) {
@@ -258,6 +266,9 @@ async function updateDeviceStatus() {
         updateValueWithTransition('voltage', data.Voltage);
         updateValueWithTransition('current', data.Current);
         
+        // Update the power graph with the new power value
+        updatePowerGraph(data.Power);
+        
         // Calculate and display costs
         const dailyEnergy = Number(data.Total);
         const dailyCost = dailyEnergy * costPrice;
@@ -279,8 +290,24 @@ async function updateDeviceStatus() {
     }
 }
 
-// Global variable for refresh interval
+// Global variables
 let refreshInterval;
+let powerChart;
+let powerData = {
+    labels: [],
+    datasets: [{
+        label: 'Power (W)',
+        data: [],
+        borderColor: '#3B9CFF',
+        backgroundColor: 'rgba(59, 156, 255, 0.1)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.4
+    }]
+};
+
+// Maximum number of data points to show on the graph
+const MAX_DATA_POINTS = 60; // 2 minutes at 2-second intervals
 
 // Function to set up the refresh interval
 function setupRefreshInterval() {
@@ -348,8 +375,87 @@ function applySettings(form) {
     return false;
 }
 
+// Function to initialize the power usage graph
+function initializePowerGraph() {
+    const ctx = document.getElementById('powerGraph').getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (powerChart) {
+        powerChart.destroy();
+    }
+    
+    // Create the chart
+    powerChart = new Chart(ctx, {
+        type: 'line',
+        data: powerData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {
+                duration: 0 // Disable animations for better performance
+            },
+            scales: {
+                x: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Time'
+                    },
+                    ticks: {
+                        maxTicksLimit: 10, // Limit the number of ticks for readability
+                        maxRotation: 0
+                    }
+                },
+                y: {
+                    display: true,
+                    title: {
+                        display: true,
+                        text: 'Watts'
+                    },
+                    beginAtZero: true
+                }
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top'
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            }
+        }
+    });
+}
+
+// Function to update the power graph with new data
+function updatePowerGraph(power) {
+    // Add current timestamp
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString();
+    
+    // Add new data point
+    powerData.labels.push(timeLabel);
+    powerData.datasets[0].data.push(power);
+    
+    // Limit the number of data points to keep performance good
+    if (powerData.labels.length > MAX_DATA_POINTS) {
+        powerData.labels.shift();
+        powerData.datasets[0].data.shift();
+    }
+    
+    // Update the chart
+    if (powerChart) {
+        powerChart.update('none'); // 'none' mode for better performance
+    }
+}
+
 // Update power data when page loads
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize the power graph
+    initializePowerGraph();
+    
     // Initial setup of refresh interval
     setupRefreshInterval();
     
