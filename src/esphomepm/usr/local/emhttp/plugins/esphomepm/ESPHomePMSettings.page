@@ -67,14 +67,29 @@ function updateDeviceStatus() {
         document.getElementById('deviceStatus').style.display = 'none';
         return;
     }
-
+    
     document.getElementById('deviceStatus').style.display = 'block';
     document.getElementById('statusText').textContent = 'Checking...';
     document.getElementById('sensorValues').style.display = 'none';
     
     // Add timestamp to prevent caching
     const timestamp = new Date().getTime();
-    fetch(`/plugins/esphomepm/status.php?t=${timestamp}`)
+    
+    // First try with test mode to see if the PHP script is accessible
+    fetch(`/plugins/esphomepm/status.php?test=true&t=${timestamp}`)
+        .then(response => {
+            if (!response.ok) {
+                console.error('Test response not OK:', response.status, response.statusText);
+                throw new Error(`Test request failed: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(testData => {
+            console.log('Test data received:', testData);
+            
+            // Now make the actual request
+            return fetch(`/plugins/esphomepm/status.php?t=${timestamp}`);
+        })
         .then(response => {
             if (!response.ok) {
                 console.error('Response not OK:', response.status, response.statusText);
@@ -97,10 +112,10 @@ function updateDeviceStatus() {
                 return;
             }
             
-            // Check if we have valid sensor data
-            if (data.success === false) {
-                console.error('Data indicates failure');
-                document.getElementById('statusText').textContent = 'Disconnected';
+            // Check if we have valid power data (the most important value)
+            if (data.Power <= 0 && data.Voltage <= 0 && data.Current <= 0) {
+                console.error('No valid sensor data');
+                document.getElementById('statusText').textContent = 'No sensor data';
                 document.getElementById('sensorValues').style.display = 'none';
                 return;
             }
