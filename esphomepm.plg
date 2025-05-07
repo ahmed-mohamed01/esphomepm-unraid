@@ -1,8 +1,8 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
-<!ENTITY name      "tasmotapm">
-<!ENTITY author    "Flippo24">
-<!ENTITY version   "2021.03.24">
+<!ENTITY name      "esphomepm">
+<!ENTITY author    "Ahmed-mohamed01">
+<!ENTITY version   "2025.05.07">
 <!ENTITY launch    "Settings/TasmotaPMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/Flippo24/&name;-unraid/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
