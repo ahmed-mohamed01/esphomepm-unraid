@@ -35,11 +35,8 @@ Unit for cost calculation:
 </form>
 
 <div id="deviceStatus" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc; display: none;">
-    <h3>Device Status</h3>
-    <div id="connectionStatus" style="margin-bottom: 10px;">
-        Status: <span id="statusText">Checking...</span>
-    </div>
-    <div id="sensorValues" style="display: none;">
+    <h3>Power Monitoring</h3>
+    <div id="sensorValues">
         <h4>Current Readings</h4>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
             <div>
@@ -196,7 +193,7 @@ function displayMonthlyCostData(data, costUnit) {
     return { totalCost, totalEnergy };
 }
 
-// Function to update device status using our PHP proxy
+// Function to update power monitoring data
 async function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
     if (!deviceIP) {
@@ -205,8 +202,6 @@ async function updateDeviceStatus() {
     }
     
     document.getElementById('deviceStatus').style.display = 'block';
-    document.getElementById('statusText').textContent = 'Checking...';
-    document.getElementById('sensorValues').style.display = 'none';
     
     try {
         // Add timestamp to prevent caching
@@ -219,27 +214,13 @@ async function updateDeviceStatus() {
         }
         
         const data = await response.json();
-        console.log('Status data received:', data);
+        console.log('Power data received:', data);
         
         // Check if there's an error message
         if (data.error) {
             console.error('Error in data:', data.error);
-            document.getElementById('statusText').textContent = 'Error: ' + data.error;
-            document.getElementById('sensorValues').style.display = 'none';
             return;
         }
-        
-        // Check if we have valid power data
-        if (data.Power <= 0 && data.Voltage <= 0 && data.Current <= 0) {
-            console.error('No valid sensor data');
-            document.getElementById('statusText').textContent = 'No sensor data';
-            document.getElementById('sensorValues').style.display = 'none';
-            return;
-        }
-        
-        // Update UI with sensor values
-        document.getElementById('statusText').textContent = 'Connected';
-        document.getElementById('sensorValues').style.display = 'block';
         
         // Get cost price and unit
         const costPrice = parseFloat(data.Costs_Price) || 0.27;
@@ -266,26 +247,43 @@ async function updateDeviceStatus() {
         const monthlyData = await updateMonthlyCostData(dailyEnergy, costPrice);
         displayMonthlyCostData(monthlyData, costUnit);
     } catch (error) {
-        console.error('Error:', error);
-        document.getElementById('statusText').textContent = 'Disconnected';
-        document.getElementById('sensorValues').style.display = 'none';
+        console.error('Error fetching power data:', error);
     }
 }
 
-// Update status when page loads
+// Update power data when page loads
 document.addEventListener('DOMContentLoaded', function() {
     // Initial update
     updateDeviceStatus();
     
-    // Set up auto-refresh
-    const refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
-    if (refreshRate > 0) {
-        setInterval(() => {
-            updateDeviceStatus();
-        }, refreshRate);
+    // Set up auto-refresh based on the configured refresh rate
+    let refreshInterval;
+    
+    function setupRefreshInterval() {
+        // Clear any existing interval
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+        }
+        
+        // Get the refresh rate from the input field
+        const refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
+        console.log('Setting refresh rate to', refreshRate, 'ms');
+        
+        // Set up new interval if refresh rate is positive
+        if (refreshRate > 0) {
+            refreshInterval = setInterval(() => {
+                updateDeviceStatus();
+            }, refreshRate);
+        }
     }
+    
+    // Initial setup
+    setupRefreshInterval();
+    
+    // Update interval when refresh rate changes
+    document.getElementById('UIREFRESH').addEventListener('change', setupRefreshInterval);
 });
 
-// Update status when IP changes
+// Update power data when IP changes
 document.getElementById('DEVICE_IP').addEventListener('change', updateDeviceStatus);
 </script>

@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.07a">
+<!ENTITY version   "2025.05.07b">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,10 +14,18 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.05.07b
+###2025.05.07c
+- Added monthly cost tracking with server-side storage
+- Added daily and monthly cost calculations
+- Improved UI refresh rate handling
+- Simplified interface by removing redundant status checks
+
+###2025.05.07b
+- Fixed connectivity issues with ESPHome device
+- Improved error handling
+
 ###2025.05.07a
-###2025.05.07
-
-
 - Initial release.
 </CHANGES>
 
