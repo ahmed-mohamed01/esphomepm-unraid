@@ -1,5 +1,5 @@
 <?php
-$esphomepm_cfg = parse_ini_file( "/boot/config/plugins/esphomepm/esphomepm.cfg" );
+$esphomepm_cfg = parse_ini_file("/boot/config/plugins/esphomepm/esphomepm.cfg");
 $esphomepm_device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
 $esphomepm_costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.27";
 $esphomepm_costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
@@ -10,24 +10,43 @@ if ($esphomepm_device_ip == "") {
 	exit;
 }
 
-$Url = "http://" . $esphomepm_device_ip;
+$baseUrl = "http://" . $esphomepm_device_ip;
 
-// Function to extract numeric value from state string
-function extractNumericValue($state) {
-	return floatval(preg_replace('/[^0-9.]/', '', $state));
+// Initialize curl
+$ch = curl_init();
+curl_setopt_array($ch, [
+	CURLOPT_RETURNTRANSFER => true,
+	CURLOPT_HTTPHEADER => ['Accept: application/json'],
+	CURLOPT_TIMEOUT => 5,
+	CURLOPT_CONNECTTIMEOUT => 5
+]);
+
+function getSensorValue($ch, $baseUrl, $sensor) {
+	curl_setopt($ch, CURLOPT_URL, $baseUrl . "/sensor/" . $sensor);
+	$response = curl_exec($ch);
+	
+	if (curl_errno($ch)) {
+		error_log("ESPHome API Error for $sensor: " . curl_error($ch));
+		return 0;
+	}
+	
+	$data = json_decode($response, true);
+	return isset($data['value']) ? floatval($data['value']) : 0;
 }
 
-// Get data from each sensor
-$power = json_decode(file_get_contents($Url . "/sensor/power"), true);
-$energy = json_decode(file_get_contents($Url . "/sensor/daily_energy"), true);
-$voltage = json_decode(file_get_contents($Url . "/sensor/voltage"), true);
-$current = json_decode(file_get_contents($Url . "/sensor/current"), true);
+// Get sensor values
+$power = getSensorValue($ch, $baseUrl, "power");
+$daily_energy = getSensorValue($ch, $baseUrl, "daily_energy");
+$voltage = getSensorValue($ch, $baseUrl, "voltage");
+$current = getSensorValue($ch, $baseUrl, "current");
+
+curl_close($ch);
 
 $json = array(
-		'Total' => $energy ? $energy['value'] : 0,
-		'Power' => $power ? $power['value'] : 0,
-		'Voltage' => $voltage ? $voltage['value'] : 0,
-		'Current' => $current ? $current['value'] : 0,
+		'Total' => $daily_energy,
+		'Power' => $power,
+		'Voltage' => $voltage,
+		'Current' => $current,
 		'Costs_Price' => $esphomepm_costs_price,
 		'Costs_Unit' => $esphomepm_costs_unit
 	);
