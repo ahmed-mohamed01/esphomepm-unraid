@@ -1,10 +1,10 @@
 <?xml version='1.0' standalone='yes'?>
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
-<!ENTITY author    "Ahmed-mohamed01">
+<!ENTITY author    "Ahmed Mohamed">
 <!ENTITY version   "2025.05.07">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
-<!ENTITY gitURL    "https://raw.githubusercontent.com/Flippo24/&name;-unraid/main">
+<!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY pkgURL    "&gitURL;/pkg">
 <!ENTITY plgPATH   "/boot/config/plugins/&name;">
@@ -15,7 +15,7 @@
 <CHANGES>
 ##&name;
 
-- Inital release.
+- Initial release.
 </CHANGES>
 
  <FILE Name="&plgPATH;/&plgNAME;.txz" Min="6.9.1" Run="upgradepkg --install-new">
