@@ -15,8 +15,8 @@
 <CHANGES>
 ##&name;
 ###2025.05.08i
-###2025.05.08
 - fix: attempt to fix monthly data handling and esphome api calls
+- chore: expanded mkpkg to handle multiple versions
 
 ###2025.05.08i
 - fix: resolved JSON parsing errors in monthly data updates
