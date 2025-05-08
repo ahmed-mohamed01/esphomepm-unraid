@@ -16,11 +16,20 @@ else
     MD5="${ARCHIVE}/${PLUGIN}-${VERSION}${ARCH}.md5"
 
 
-    for x in '' a b c d e d f g h i j k l m n o p q r s t u v w x y z; do
-        PKG="${ARCHIVE}/${PLUGIN}-${VERSION}${x}${ARCH}.txz"
+    # Use numeric suffixes instead of letters for better versioning
+    for i in {0..99}; do
+        if [ $i -eq 0 ]; then
+            # First try without suffix
+            SUFFIX=""
+        else
+            # Then try with numeric suffix
+            SUFFIX=".${i}"
+        fi
+        
+        PKG="${ARCHIVE}/${PLUGIN}-${VERSION}${SUFFIX}${ARCH}.txz"
         if [[ ! -f $PKG ]]; then
           PACKAGE=$PKG
-          VERSION="${VERSION}${x}"
+          VERSION="${VERSION}${SUFFIX}"
           MD5="${ARCHIVE}/${PLUGIN}-${VERSION}${ARCH}.md5"
           break
         fi
