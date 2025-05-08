@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.07f">
+<!ENTITY version   "2025.05.08">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,6 +14,11 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.05.08
+###2025.05.08
+- Improved uninstallation process to clean up all plugin files
+- Fixed persistence issues with monthly data
+
 ###2025.05.07f
 - Added power usage graph
 
@@ -81,8 +86,18 @@
 <FILE Run="/bin/bash" Method="remove">
   <INLINE>
     echo "Removing &name;..."
-    removepkg &plgPATH;/*.txz
+    # Remove all versions of the package to handle any leftover packages
+    find &plgPATH; -name "&name;-*.txz" -delete
+    
+    # Clean up the plugin directories
     rm -rf &emhttp;
+    
+    # Remove any temporary files
+    rm -f /tmp/esphomepm_cache.json
+    
+    # Optionally remove configuration (comment this out if you want to keep settings)
+    # rm -rf /boot/config/plugins/&name;
+    
     echo "&name; has been removed"
   </INLINE>
 </FILE>
