@@ -177,6 +177,21 @@ async function updateMonthlyCostData(dailyEnergy, costPrice) {
         // Check if the response is empty
         if (!responseText || responseText.trim() === '') {
             console.error('Empty response from server');
+            
+            // Try a simple ping to the server to check if it's responsive
+            try {
+                const pingResponse = await fetch('/plugins/esphomepm/monthly_data.php?ping=true');
+                if (pingResponse.ok) {
+                    console.log('Server is responsive, but returned empty response for update');
+                } else {
+                    console.error('Server is not responsive:', pingResponse.status);
+                }
+            } catch (pingError) {
+                console.error('Error pinging server:', pingError);
+            }
+            
+            // Wait a moment before retrying
+            await new Promise(resolve => setTimeout(resolve, 1000));
             return await loadMonthlyCostData();
         }
         
@@ -300,14 +315,18 @@ async function updateDeviceStatus() {
             }
         }
         
-        // Update all values with smooth transitions
-        updateValueWithTransition('currentPower', data.Power);
-        updateValueWithTransition('dailyEnergy', data.Total);
-        updateValueWithTransition('voltage', data.Voltage);
-        updateValueWithTransition('current', data.Current);
-        
-        // Update the power graph with the new power value
-        updatePowerGraph(data.Power);
+        // Batch all UI updates together to ensure they happen at the same time
+        // This ensures both numeric values and graph update at exactly the same rate
+        requestAnimationFrame(() => {
+            // Update all values with smooth transitions
+            updateValueWithTransition('currentPower', data.Power);
+            updateValueWithTransition('dailyEnergy', data.Total);
+            updateValueWithTransition('voltage', data.Voltage);
+            updateValueWithTransition('current', data.Current);
+            
+            // Update the power graph with the new power value
+            updatePowerGraph(data.Power);
+        });
         
         // Calculate and display costs
         const dailyEnergy = Number(data.Total);
@@ -489,7 +508,9 @@ function updatePowerGraph(power) {
         powerData.datasets[0].data.shift();
     }
     
-    // Update the chart
+    // Update the chart only at the UI refresh rate
+    // This is now handled in the updateDeviceStatus function
+    // to ensure the graph and numeric values update at the same rate
     if (powerChart) {
         powerChart.update('none'); // 'none' mode for better performance
     }

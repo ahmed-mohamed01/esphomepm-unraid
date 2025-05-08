@@ -298,14 +298,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Save the updated data
             if (saveData($current_data)) {
                 error_log("Data saved successfully");
-                echo json_encode(['success' => true, 'data' => $current_data]);
+                $response = ['success' => true, 'data' => $current_data];
             } else {
                 error_log("Failed to save data");
-                echo json_encode(['error' => 'Failed to save data']);
+                $response = ['error' => 'Failed to save data'];
             }
+            
+            // Always ensure we output a valid JSON response
+            header('Content-Type: application/json');
+            echo json_encode($response);
+            error_log("Sending response: " . json_encode($response));
         } catch (Exception $e) {
             error_log("Exception in daily energy update: " . $e->getMessage());
-            echo json_encode(['error' => 'Exception: ' . $e->getMessage()]);
+            header('Content-Type: application/json');
+            $error_response = ['error' => 'Exception: ' . $e->getMessage()];
+            echo json_encode($error_response);
+            error_log("Sending error response: " . json_encode($error_response));
         }
         exit;
     }
@@ -313,14 +321,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Handle full data replacement (if needed)
     if (isset($update_data['fullData'])) {
         saveData($update_data['fullData']);
+        header('Content-Type: application/json');
         echo json_encode(['success' => true]);
         exit;
     }
-    
-    echo json_encode(['error' => 'Invalid update data']);
+    header('Content-Type: application/json');
+    $error_response = ['error' => 'Invalid update data'];
+    echo json_encode($error_response);
+    error_log("Sending error response: " . json_encode($error_response));
     exit;
 }
 
 // If we reach here, it's an unsupported method
-echo json_encode(['error' => 'Unsupported request method']);
+header('Content-Type: application/json');
+$error_response = ['error' => 'Unsupported request method'];
+echo json_encode($error_response);
+error_log("Sending error response: " . json_encode($error_response));
 ?>
