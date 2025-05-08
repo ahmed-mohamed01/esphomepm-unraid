@@ -30,8 +30,8 @@ Price per kWh for cost calculation:
 Unit for cost calculation:
 : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
 
- <input id="DEFAULT" class="stopped" type="submit" value="Default" onClick="resetDATA(this.form)">
-: <input id="btnApply" type="submit" value="Apply" onClick="applySettings(this.form)"><input type="button" value="Done" onClick="done()">
+ <input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
+: <input id="btnApply" type="submit" value="Apply"><input type="button" value="Done" onClick="done()">
 </form>
 
 <style>
@@ -95,11 +95,15 @@ Unit for cost calculation:
 
 <script type="text/javascript">
 function resetDATA(form) {
-	form.DEVICE_IP.value = "";
-  form.DEVICE_NAME.value = "";
-  form.UIREFRESH.value = 1000;
-  form.COSTS_PRICE.value = 0.27;
-  form.COSTS_UNIT.value = "GBP";
+    // Reset form values to defaults
+    form.DEVICE_IP.value = "";
+    form.DEVICE_NAME.value = "";
+    form.UIREFRESH.value = 1000;
+    form.COSTS_PRICE.value = 0.27;
+    form.COSTS_UNIT.value = "GBP";
+    
+    // Submit the form to save the default values
+    form.submit();
 }
 
 function done() {
@@ -343,9 +347,13 @@ function setupRefreshInterval() {
 
 // Function to apply settings without page reload
 function applySettings(form) {
-    // Prevent the default form submission which would reload the page
-    event.preventDefault();
-    
+    // Don't prevent default form submission - let it work normally
+    // The form is already set to submit to /update.php with target="progressFrame"
+    return true;
+};
+
+// This is a backup function that can be used if the normal form submission doesn't work
+function applySettingsAjax(form) {
     // Get the form data
     const formData = new FormData(form);
     
