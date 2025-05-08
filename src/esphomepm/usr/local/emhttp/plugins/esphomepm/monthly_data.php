@@ -1,4 +1,7 @@
 <?php
+// Include Unraid utility functions for CSRF protection
+require_once '/usr/local/emhttp/webGui/include/Helpers.php';
+
 // Set headers for JSON response
 header('Content-Type: application/json');
 
@@ -51,6 +54,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 
 // Handle POST request - update the data
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Check for CSRF token
+    if (!isset($_POST['csrf_token']) && !isset($_REQUEST['csrf_token'])) {
+        // For API calls, check for token in headers
+        $headers = getallheaders();
+        $token = isset($headers['X-CSRF-TOKEN']) ? $headers['X-CSRF-TOKEN'] : '';
+        
+        // If still no token, try to extract from JSON data
+        if (empty($token)) {
+            $input_data = file_get_contents('php://input');
+            $update_data = json_decode($input_data, true);
+            $token = isset($update_data['csrf_token']) ? $update_data['csrf_token'] : '';
+        }
+    } else {
+        // Get token from POST or REQUEST
+        $token = isset($_POST['csrf_token']) ? $_POST['csrf_token'] : $_REQUEST['csrf_token'];
+    }
+    
+    // Validate CSRF token
+    if (empty($token) || !csrf_validate($token)) {
+        error_log('CSRF token validation failed in monthly_data.php');
+        echo json_encode(['error' => 'Invalid CSRF token']);
+        exit;
+    }
+    
     // Get the JSON data from the request
     $input_data = file_get_contents('php://input');
     $update_data = json_decode($input_data, true);
