@@ -10,8 +10,8 @@ ini_set('error_log', '/tmp/esphomepm_error.log');
 // Set content type to JSON
 header('Content-Type: application/json');
 
-// Include the monthly_data.php file to use its functions
-include_once(dirname(__FILE__) . '/monthly_data.php');
+// Do NOT include monthly_data.php here to avoid endpoint confusion
+// We'll only include the specific functions we need
 
 // Parse the configuration using Unraid's function with fallback
 try {
@@ -243,38 +243,14 @@ $response_data['Current'] = getSensorValue('current', $device_ip);
 // Log the final response data for debugging
 error_log("Final response data: " . json_encode($response_data));
 
-// Periodically update the monthly data (every hour)
-// We'll use a timestamp file to track when the last update was performed
-$update_marker = '/tmp/esphomepm_last_update.txt';
-$update_interval = 3600; // 1 hour in seconds
+// We'll handle monthly data updates through the JavaScript in ESPHomePMSettings.page
+// This avoids endpoint confusion by keeping status.php focused only on current sensor data
+// The monthly data update will be triggered by the JavaScript after it receives the sensor data
 
-$should_update = false;
-if (!file_exists($update_marker)) {
-    $should_update = true;
-    error_log("No update marker found, performing initial update");
-} else {
-    $last_update = intval(file_get_contents($update_marker));
-    $current_time = time();
-    if (($current_time - $last_update) > $update_interval) {
-        $should_update = true;
-        error_log("Update interval exceeded, performing update");
-    }
-}
-
-// Only update if we have valid energy data
-if ($should_update && $daily_energy > 0) {
-    error_log("Performing background update of monthly data with energy=$daily_energy, price=$costs_price");
-    // Update the monthly data with the current reading
-    $update_result = updateMonthlyData($daily_energy, $costs_price);
-    error_log("Background update result: " . json_encode($update_result));
-    
-    // Update the timestamp file
-    file_put_contents($update_marker, time());
-}
-
-// Save the data to cache file
+// Save the data to cache file for future requests
 file_put_contents($cache_file, json_encode($response_data));
 
 // Return the data
+error_log("Returning sensor data: " . json_encode($response_data));
 echo json_encode($response_data);
 ?>
