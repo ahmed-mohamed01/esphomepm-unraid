@@ -139,27 +139,63 @@ async function loadMonthlyCostData() {
 // Function to update monthly cost data with today's reading
 async function updateMonthlyCostData(dailyEnergy, costPrice) {
     try {
+        console.log(`Updating monthly data with dailyEnergy=${dailyEnergy}, costPrice=${costPrice}`);
+        
+        // Validate inputs to prevent sending invalid data
+        if (isNaN(dailyEnergy) || isNaN(costPrice) || dailyEnergy < 0 || costPrice < 0) {
+            console.error('Invalid input values for monthly data update');
+            return await loadMonthlyCostData();
+        }
+        
+        // Prepare the data with proper formatting
+        const updateData = {
+            dailyEnergy: parseFloat(dailyEnergy),
+            costPrice: parseFloat(costPrice)
+        };
+        
+        // Log the data being sent
+        console.log('Sending data to server:', updateData);
+        
         // Send the update to the server
         const response = await fetch('/plugins/esphomepm/monthly_data.php', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-                dailyEnergy: dailyEnergy,
-                costPrice: costPrice
-            })
+            body: JSON.stringify(updateData)
         });
         
+        // Check for HTTP errors
         if (!response.ok) {
             throw new Error(`Failed to update monthly data: ${response.status}`);
         }
         
-        const result = await response.json();
-        if (result.error) {
-            throw new Error(result.error);
+        // Get the response text first to check if it's valid JSON
+        const responseText = await response.text();
+        console.log('Server response:', responseText);
+        
+        // Check if the response is empty
+        if (!responseText || responseText.trim() === '') {
+            console.error('Empty response from server');
+            return await loadMonthlyCostData();
         }
         
+        // Try to parse the JSON response
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            console.error('Failed to parse JSON response:', parseError, 'Response was:', responseText);
+            return await loadMonthlyCostData();
+        }
+        
+        // Check for error in the result
+        if (result.error) {
+            console.error('Server returned error:', result.error);
+            return await loadMonthlyCostData();
+        }
+        
+        // Return the data
         return result.data;
     } catch (error) {
         console.error('Error updating monthly data:', error);

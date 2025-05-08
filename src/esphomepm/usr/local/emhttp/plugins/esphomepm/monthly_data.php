@@ -193,10 +193,30 @@ function updateMonthlyData($daily_energy, $cost_price) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get the JSON data from the request
     $input_data = file_get_contents('php://input');
-    $update_data = json_decode($input_data, true);
+    error_log("Received POST data: $input_data");
     
-    if (!$update_data) {
-        echo json_encode(['error' => 'Invalid JSON data']);
+    // Check if input data is empty
+    if (empty($input_data)) {
+        error_log("Empty POST data received");
+        echo json_encode(['error' => 'Empty data received']);
+        exit;
+    }
+    
+    // Try to decode the JSON data with better error handling
+    $update_data = json_decode($input_data, true);
+    $json_error = json_last_error();
+    
+    if ($json_error !== JSON_ERROR_NONE) {
+        $error_msg = "JSON decode error: " . json_last_error_msg() . " in data: $input_data";
+        error_log($error_msg);
+        echo json_encode(['error' => $error_msg]);
+        exit;
+    }
+    
+    // Additional validation to ensure we have an array
+    if (!is_array($update_data)) {
+        error_log("Invalid data format: not an array. Data: $input_data");
+        echo json_encode(['error' => 'Invalid data format']);
         exit;
     }
     
