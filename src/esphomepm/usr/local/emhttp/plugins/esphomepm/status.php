@@ -96,40 +96,80 @@ function getSensorValue($sensor, $device_ip) {
     }
     
     try {
-        $url = "http://$device_ip/sensor/$sensor";
-        error_log("Fetching sensor data from: $url");
+        // Try both API formats that ESPHome might support
+        $urls = [
+            "http://$device_ip/sensor/$sensor",  // Standard ESPHome API format
+            "http://$device_ip/api/sensor/$sensor" // Alternative API format
+        ];
         
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Increased timeout
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5); // Increased connect timeout
-        $response = curl_exec($ch);
-        $curl_error = curl_errno($ch);
-        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        
-        if ($curl_error) {
-            error_log("getSensorValue: cURL error $curl_error for $url");
-            return 0;
+        foreach ($urls as $url) {
+            error_log("Trying to fetch sensor data from: $url");
+            
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Increased timeout
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // Increased connect timeout
+            curl_setopt($ch, CURLOPT_FAILONERROR, false); // Don't fail on HTTP errors
+            curl_setopt($ch, CURLOPT_HEADER, false);
+            
+            // Add a user agent to make the request more browser-like
+            curl_setopt($ch, CURLOPT_USERAGENT, 'ESPHomePM-Unraid-Plugin/1.0');
+            
+            $response = curl_exec($ch);
+            $curl_error = curl_errno($ch);
+            $curl_error_message = curl_error($ch);
+            $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            
+            if ($curl_error) {
+                error_log("getSensorValue: cURL error $curl_error ($curl_error_message) for $url");
+                continue; // Try next URL format
+            }
+            
+            if ($http_code != 200) {
+                error_log("getSensorValue: HTTP error $http_code for $url. Response: $response");
+                continue; // Try next URL format
+            }
+            
+            error_log("Raw response from $url: $response");
+            
+            // Try to parse the response as JSON
+            $data = json_decode($response, true);
+            
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                error_log("getSensorValue: JSON parse error: " . json_last_error_msg() . " for response: $response");
+                
+                // If it's not JSON, check if it's a simple numeric value (some ESPHome endpoints return plain values)
+                if (is_numeric($response)) {
+                    error_log("getSensorValue: Numeric value detected: $response");
+                    return floatval($response);
+                }
+                
+                continue; // Try next URL format
+            }
+            
+            // Handle different response formats from ESPHome
+            if (isset($data['value'])) {
+                $value = floatval($data['value']);
+                error_log("Sensor $sensor value: $value (from 'value' field)");
+                return $value;
+            } else if (isset($data['state'])) {
+                $value = floatval($data['state']);
+                error_log("Sensor $sensor value: $value (from 'state' field)");
+                return $value;
+            } else if (is_numeric($data)) {
+                $value = floatval($data);
+                error_log("Sensor $sensor value: $value (direct numeric value)");
+                return $value;
+            }
+            
+            error_log("getSensorValue: Unexpected data format for $sensor: " . json_encode($data));
         }
         
-        if ($http_code != 200) {
-            error_log("getSensorValue: HTTP error $http_code for $url");
-            return 0;
-        }
-        
-        error_log("Raw response from $sensor: $response");
-        $data = json_decode($response, true);
-        
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("getSensorValue: JSON parse error: " . json_last_error_msg() . " for response: $response");
-            return 0;
-        }
-        
-        $value = isset($data['value']) ? floatval($data['value']) : 0;
-        error_log("Sensor $sensor value: $value");
-        return $value;
+        // If we get here, all URL formats failed
+        error_log("getSensorValue: All URL formats failed for sensor $sensor");
+        return 0;
     } catch (Exception $e) {
         error_log("getSensorValue: Exception: " . $e->getMessage());
         return 0;
@@ -163,27 +203,45 @@ if ($curl_error) {
     exit;
 }
 
-// Get sensor values with a small delay between requests to avoid overloading the device
+// Get sensor values with a longer delay between requests to avoid overloading the device
+error_log("Fetching power sensor data");
 $response_data['Power'] = getSensorValue('power', $device_ip);
-usleep(200000); // 200ms delay
+usleep(500000); // 500ms delay
 
-// Get total daily energy - try both possible sensor names
+// Get total daily energy - try multiple possible sensor names
+error_log("Fetching daily energy sensor data");
 $daily_energy = getSensorValue('daily_energy', $device_ip);
-usleep(200000); // 200ms delay
+usleep(500000); // 500ms delay
 
-// If daily_energy returns 0, try alternative sensor name
+// If daily_energy returns 0, try alternative sensor names
 if ($daily_energy == 0) {
-    $daily_energy = getSensorValue('total_daily_energy', $device_ip);
-    usleep(200000); // 200ms delay
+    error_log("Trying alternative daily energy sensor names");
+    $alternative_names = ['total_daily_energy', 'energy_today', 'daily_power', 'total_energy'];
+    
+    foreach ($alternative_names as $alt_name) {
+        error_log("Trying alternative sensor name: $alt_name");
+        $daily_energy = getSensorValue($alt_name, $device_ip);
+        if ($daily_energy > 0) {
+            error_log("Found working sensor: $alt_name");
+            break;
+        }
+        usleep(500000); // 500ms delay
+    }
 }
 
 $response_data['Total'] = $daily_energy;
 
-// Get voltage and current
+// Get voltage
+error_log("Fetching voltage sensor data");
 $response_data['Voltage'] = getSensorValue('voltage', $device_ip);
-usleep(200000); // 200ms delay
+usleep(500000); // 500ms delay
 
+// Get current
+error_log("Fetching current sensor data");
 $response_data['Current'] = getSensorValue('current', $device_ip);
+
+// Log the final response data for debugging
+error_log("Final response data: " . json_encode($response_data));
 
 // Periodically update the monthly data (every hour)
 // We'll use a timestamp file to track when the last update was performed
@@ -212,9 +270,6 @@ if ($should_update && $daily_energy > 0) {
     
     // Update the timestamp file
     file_put_contents($update_marker, time());
-}
-
-
 }
 
 // Save the data to cache file
