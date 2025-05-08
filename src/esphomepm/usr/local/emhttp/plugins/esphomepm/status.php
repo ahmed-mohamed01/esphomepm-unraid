@@ -1,18 +1,40 @@
 <?php
-// Basic error handling
-ini_set('display_errors', 0);
-error_reporting(0);
+// Enable error reporting for debugging
+ini_set('display_errors', 1);
+error_reporting(E_ALL);
+
+// Log errors to a file for debugging
+ini_set('log_errors', 1);
+ini_set('error_log', '/tmp/esphomepm_error.log');
 
 // Set content type to JSON
 header('Content-Type: application/json');
 
-// Parse the configuration using Unraid's function
-$esphomepm_cfg = parse_plugin_cfg("esphomepm", true);
+// Parse the configuration using Unraid's function with fallback
+try {
+    if (function_exists('parse_plugin_cfg')) {
+        $esphomepm_cfg = parse_plugin_cfg("esphomepm", true);
+    } else {
+        // Fallback to direct file access if function doesn't exist
+        $config_file = '/boot/config/plugins/esphomepm/esphomepm.cfg';
+        if (file_exists($config_file)) {
+            $esphomepm_cfg = parse_ini_file($config_file);
+        } else {
+            $esphomepm_cfg = [];
+        }
+    }
+} catch (Exception $e) {
+    error_log("Error parsing config: " . $e->getMessage());
+    $esphomepm_cfg = [];
+}
 
-// Get device IP and cost settings
+// Get device IP and cost settings with better error handling
 $device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : '';
 $costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : '0.27';
 $costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : 'GBP';
+
+// Log the configuration for debugging
+error_log("Configuration loaded: Device IP = $device_ip");
 
 // Cache settings
 $cache_file = '/tmp/esphomepm_cache.json';
@@ -65,19 +87,50 @@ if (file_exists($cache_file)) {
 
 // Function to get sensor value with retry and error handling
 function getSensorValue($sensor, $device_ip) {
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "http://$device_ip/sensor/$sensor");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Increased timeout
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5); // Increased connect timeout
-    $response = curl_exec($ch);
-    $curl_error = curl_errno($ch);
-    curl_close($ch);
+    if (empty($device_ip)) {
+        error_log("getSensorValue: Empty device IP");
+        return 0;
+    }
     
-    if ($curl_error) return 0;
-    
-    $data = json_decode($response, true);
-    return isset($data['value']) ? floatval($data['value']) : 0;
+    try {
+        $url = "http://$device_ip/sensor/$sensor";
+        error_log("Fetching sensor data from: $url");
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Increased timeout
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5); // Increased connect timeout
+        $response = curl_exec($ch);
+        $curl_error = curl_errno($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($curl_error) {
+            error_log("getSensorValue: cURL error $curl_error for $url");
+            return 0;
+        }
+        
+        if ($http_code != 200) {
+            error_log("getSensorValue: HTTP error $http_code for $url");
+            return 0;
+        }
+        
+        error_log("Raw response from $sensor: $response");
+        $data = json_decode($response, true);
+        
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("getSensorValue: JSON parse error: " . json_last_error_msg() . " for response: $response");
+            return 0;
+        }
+        
+        $value = isset($data['value']) ? floatval($data['value']) : 0;
+        error_log("Sensor $sensor value: $value");
+        return $value;
+    } catch (Exception $e) {
+        error_log("getSensorValue: Exception: " . $e->getMessage());
+        return 0;
+    }
 }
 
 // Prepare the response data
