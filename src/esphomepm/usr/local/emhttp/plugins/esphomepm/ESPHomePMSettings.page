@@ -449,6 +449,15 @@ function initializePowerGraph() {
         powerChart.destroy();
     }
     
+    // Create gradient fill for the area under the line (like Unraid dashboard)
+    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
+    gradient.addColorStop(0, 'rgba(230, 138, 0, 0.4)');  // More opaque at top
+    gradient.addColorStop(0.5, 'rgba(230, 138, 0, 0.1)'); // Semi-transparent in middle
+    gradient.addColorStop(1, 'rgba(230, 138, 0, 0)');    // Transparent at bottom
+    
+    // Update the dataset background
+    powerData.datasets[0].backgroundColor = gradient;
+    
     // Create the chart with Unraid styling
     powerChart = new Chart(ctx, {
         type: 'line',
@@ -457,7 +466,13 @@ function initializePowerGraph() {
             responsive: true,
             maintainAspectRatio: false,
             animation: {
-                duration: 500 // Smooth animations for better visual appeal
+                duration: 1000, // Longer animation for smoother flow
+                easing: 'linear' // Linear easing for constant flow speed
+            },
+            elements: {
+                line: {
+                    tension: 0.4 // Smoother curve
+                }
             },
             interaction: {
                 mode: 'nearest',
@@ -468,30 +483,37 @@ function initializePowerGraph() {
                 x: {
                     display: true,
                     grid: {
-                        color: 'rgba(255, 255, 255, 0.1)', // Subtle grid lines
+                        color: 'rgba(255, 255, 255, 0.05)', // Very subtle grid lines
                         drawBorder: false
                     },
                     title: {
                         display: false // Hide title for cleaner look
                     },
                     ticks: {
-                        maxTicksLimit: 6, // Fewer ticks for cleaner appearance
+                        maxTicksLimit: 5, // Fewer ticks for cleaner appearance
                         maxRotation: 0,
-                        color: 'rgba(255, 255, 255, 0.7)' // Lighter text color
+                        color: 'rgba(255, 255, 255, 0.5)', // Lighter text color
+                        font: {
+                            size: 10 // Smaller font size
+                        }
                     }
                 },
                 y: {
                     display: true,
                     grid: {
-                        color: 'rgba(255, 255, 255, 0.1)', // Subtle grid lines
-                        drawBorder: false
+                        color: 'rgba(255, 255, 255, 0.05)', // Very subtle grid lines
+                        drawBorder: false,
+                        z: -1 // Draw grid behind the data
                     },
                     title: {
                         display: false // Hide title for cleaner look
                     },
                     ticks: {
-                        color: 'rgba(255, 255, 255, 0.7)', // Lighter text color
+                        color: 'rgba(255, 255, 255, 0.5)', // Lighter text color
                         padding: 10,
+                        font: {
+                            size: 10 // Smaller font size
+                        },
                         callback: function(value) {
                             return value + ' W'; // Add watts unit to y-axis values
                         }
@@ -541,11 +563,16 @@ function updatePowerGraph(power) {
         powerData.datasets[0].data.shift();
     }
     
-    // Update the chart only at the UI refresh rate
-    // This is now handled in the updateDeviceStatus function
-    // to ensure the graph and numeric values update at the same rate
+    // Update the chart with smooth animation for flowing effect
     if (powerChart) {
-        powerChart.update('none'); // 'none' mode for better performance
+        // Enable animation for the flowing effect
+        powerChart.options.animation = {
+            duration: Math.min(parseInt(document.getElementById('UIREFRESH').value) || 2000, 2000) * 0.8,
+            easing: 'linear'
+        };
+        
+        // Update with animation
+        powerChart.update();
     }
 }
 
