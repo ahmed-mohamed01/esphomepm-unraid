@@ -357,11 +357,13 @@ let powerData = {
     datasets: [{
         label: 'Power (W)',
         data: [],
-        borderColor: '#3B9CFF',
-        backgroundColor: 'rgba(59, 156, 255, 0.1)',
-        borderWidth: 2,
-        fill: true,
-        tension: 0.4
+        borderColor: '#E68A00',       // Unraid orange color
+        backgroundColor: 'rgba(230, 138, 0, 0.1)', // Transparent orange
+        borderWidth: 3,              // Slightly thicker line
+        fill: true,                  // Fill area under the line
+        tension: 0.6,                // Higher tension for smoother curve
+        pointRadius: 0,              // Remove the dots
+        pointHoverRadius: 4          // Show points only on hover
     }]
 };
 
@@ -447,7 +449,7 @@ function initializePowerGraph() {
         powerChart.destroy();
     }
     
-    // Create the chart
+    // Create the chart with Unraid styling
     powerChart = new Chart(ctx, {
         type: 'line',
         data: powerData,
@@ -455,37 +457,68 @@ function initializePowerGraph() {
             responsive: true,
             maintainAspectRatio: false,
             animation: {
-                duration: 0 // Disable animations for better performance
+                duration: 500 // Smooth animations for better visual appeal
+            },
+            interaction: {
+                mode: 'nearest',
+                axis: 'x',
+                intersect: false
             },
             scales: {
                 x: {
                     display: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)', // Subtle grid lines
+                        drawBorder: false
+                    },
                     title: {
-                        display: true,
-                        text: 'Time'
+                        display: false // Hide title for cleaner look
                     },
                     ticks: {
-                        maxTicksLimit: 10, // Limit the number of ticks for readability
-                        maxRotation: 0
+                        maxTicksLimit: 6, // Fewer ticks for cleaner appearance
+                        maxRotation: 0,
+                        color: 'rgba(255, 255, 255, 0.7)' // Lighter text color
                     }
                 },
                 y: {
                     display: true,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)', // Subtle grid lines
+                        drawBorder: false
+                    },
                     title: {
-                        display: true,
-                        text: 'Watts'
+                        display: false // Hide title for cleaner look
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.7)', // Lighter text color
+                        padding: 10,
+                        callback: function(value) {
+                            return value + ' W'; // Add watts unit to y-axis values
+                        }
                     },
                     beginAtZero: true
                 }
             },
             plugins: {
                 legend: {
-                    display: true,
-                    position: 'top'
+                    display: false // Hide legend for cleaner look
                 },
                 tooltip: {
-                    mode: 'index',
-                    intersect: false
+                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                    titleColor: '#E68A00', // Unraid orange for title
+                    bodyColor: '#FFFFFF',
+                    borderColor: '#E68A00',
+                    borderWidth: 1,
+                    padding: 10,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(tooltipItems) {
+                            return tooltipItems[0].label; // Time
+                        },
+                        label: function(context) {
+                            return 'Power: ' + context.parsed.y.toFixed(2) + ' W';
+                        }
+                    }
                 }
             }
         }
