@@ -10,6 +10,9 @@ ini_set('error_log', '/tmp/esphomepm_error.log');
 // Set content type to JSON
 header('Content-Type: application/json');
 
+// Include the monthly_data.php file to use its functions
+include_once(dirname(__FILE__) . '/monthly_data.php');
+
 // Parse the configuration using Unraid's function with fallback
 try {
     if (function_exists('parse_plugin_cfg')) {
@@ -164,19 +167,55 @@ if ($curl_error) {
 $response_data['Power'] = getSensorValue('power', $device_ip);
 usleep(200000); // 200ms delay
 
-$response_data['Total'] = getSensorValue('daily_energy', $device_ip);
+// Get total daily energy - try both possible sensor names
+$daily_energy = getSensorValue('daily_energy', $device_ip);
 usleep(200000); // 200ms delay
 
-// Try alternative sensor name if daily_energy returns 0
-if ($response_data['Total'] == 0) {
-    $response_data['Total'] = getSensorValue('energy_today', $device_ip);
+// If daily_energy returns 0, try alternative sensor name
+if ($daily_energy == 0) {
+    $daily_energy = getSensorValue('total_daily_energy', $device_ip);
     usleep(200000); // 200ms delay
 }
 
+$response_data['Total'] = $daily_energy;
+
+// Get voltage and current
 $response_data['Voltage'] = getSensorValue('voltage', $device_ip);
 usleep(200000); // 200ms delay
 
 $response_data['Current'] = getSensorValue('current', $device_ip);
+
+// Periodically update the monthly data (every hour)
+// We'll use a timestamp file to track when the last update was performed
+$update_marker = '/tmp/esphomepm_last_update.txt';
+$update_interval = 3600; // 1 hour in seconds
+
+$should_update = false;
+if (!file_exists($update_marker)) {
+    $should_update = true;
+    error_log("No update marker found, performing initial update");
+} else {
+    $last_update = intval(file_get_contents($update_marker));
+    $current_time = time();
+    if (($current_time - $last_update) > $update_interval) {
+        $should_update = true;
+        error_log("Update interval exceeded, performing update");
+    }
+}
+
+// Only update if we have valid energy data
+if ($should_update && $daily_energy > 0) {
+    error_log("Performing background update of monthly data with energy=$daily_energy, price=$costs_price");
+    // Update the monthly data with the current reading
+    $update_result = updateMonthlyData($daily_energy, $costs_price);
+    error_log("Background update result: " . json_encode($update_result));
+    
+    // Update the timestamp file
+    file_put_contents($update_marker, time());
+}
+
+
+}
 
 // Save the data to cache file
 file_put_contents($cache_file, json_encode($response_data));

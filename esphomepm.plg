@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.08e">
+<!ENTITY version   "2025.05.08f">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,7 +14,16 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.05.08f
+###2025.05.08f
+- Added automatic background updates to track energy usage even when settings page is not open
+- Improved monthly data handling with better error recovery
+- Added detailed logging for easier troubleshooting
+
 ###2025.05.08e
+- Fixed JSON parsing errors in monthly data handling
+- Added extensive error logging
+
 ###2025.05.08d
 ###2025.05.08c
 ###2025.05.08c
@@ -89,7 +98,6 @@
     echo ""
     echo "-----------------------------------------------------------"
     echo " &name; has been installed."
-    echo " Copyright 2024, &author;"
     echo " Version: &version;"
     echo "-----------------------------------------------------------"
     echo ""
@@ -100,6 +108,7 @@
 <FILE Run="/bin/bash" Method="remove">
   <INLINE>
     echo "Removing &name;..."
+    
     # Remove all versions of the package to handle any leftover packages
     find &plgPATH; -name "&name;-*.txz" -delete
     
@@ -108,6 +117,8 @@
     
     # Remove any temporary files
     rm -f /tmp/esphomepm_cache.json
+    rm -f /tmp/esphomepm_*.log
+    rm -f /tmp/esphomepm_last_update.txt
     
     # Optionally remove configuration (comment this out if you want to keep settings)
     # rm -rf /boot/config/plugins/&name;

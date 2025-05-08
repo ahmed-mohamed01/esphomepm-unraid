@@ -102,6 +102,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     exit;
 }
 
+// Function to update monthly data with daily energy reading
+function updateMonthlyData($daily_energy, $cost_price) {
+    global $data_file;
+    
+    try {
+        error_log("updateMonthlyData: Processing update with energy=$daily_energy, price=$cost_price");
+        
+        // Load existing data
+        $current_data = loadData();
+        
+        // Get current date and month
+        $now = new DateTime();
+        $current_month = $now->format('Y-m');
+        $today = $now->format('Y-m-d');
+        
+        error_log("updateMonthlyData: Current month=$current_month, Today=$today");
+        
+        // Make sure we have a valid data structure
+        if (!isset($current_data['months'])) {
+            error_log("updateMonthlyData: Months array missing, initializing data structure");
+            $current_data = initializeNewData();
+        }
+        
+        // Initialize current month if it doesn't exist
+        if (!isset($current_data['months'][$current_month])) {
+            error_log("updateMonthlyData: Initializing current month: $current_month");
+            $current_data['months'][$current_month] = ['energy' => 0, 'cost' => 0];
+        }
+        
+        // Initialize dailyReadings array if it doesn't exist
+        if (!isset($current_data['dailyReadings'])) {
+            error_log("updateMonthlyData: Initializing dailyReadings array");
+            $current_data['dailyReadings'] = [];
+        }
+        
+        // Get the previous value for today (if any)
+        $prev_value = 0;
+        foreach ($current_data['dailyReadings'] as $reading) {
+            if (isset($reading['date']) && $reading['date'] === $today) {
+                $prev_value = floatval($reading['energy']);
+                break;
+            }
+        }
+        
+        error_log("updateMonthlyData: Previous value for today: $prev_value");
+        
+        // Calculate the difference (to avoid double-counting)
+        $energy_diff = max(0, $daily_energy - $prev_value);
+        error_log("updateMonthlyData: Energy difference: $energy_diff");
+        
+        // Update the month's total
+        $current_data['months'][$current_month]['energy'] += $energy_diff;
+        $current_data['months'][$current_month]['cost'] += $energy_diff * $cost_price;
+        
+        error_log("updateMonthlyData: Updated month totals - Energy: {$current_data['months'][$current_month]['energy']}, Cost: {$current_data['months'][$current_month]['cost']}");
+        
+        // Store today's reading
+        $found = false;
+        for ($i = 0; $i < count($current_data['dailyReadings']); $i++) {
+            if (isset($current_data['dailyReadings'][$i]['date']) && $current_data['dailyReadings'][$i]['date'] === $today) {
+                $current_data['dailyReadings'][$i]['energy'] = $daily_energy;
+                $found = true;
+                break;
+            }
+        }
+        
+        if (!$found) {
+            $current_data['dailyReadings'][] = [
+                'date' => $today,
+                'energy' => $daily_energy
+            ];
+        }
+        
+        // Save the updated data
+        if (saveData($current_data)) {
+            error_log("updateMonthlyData: Data saved successfully");
+            return ['success' => true, 'data' => $current_data];
+        } else {
+            error_log("updateMonthlyData: Failed to save data");
+            return ['error' => 'Failed to save data'];
+        }
+    } catch (Exception $e) {
+        error_log("updateMonthlyData: Exception: " . $e->getMessage());
+        return ['error' => 'Exception: ' . $e->getMessage()];
+    }
+}
+
 // Handle POST request - update the data
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Get the JSON data from the request
