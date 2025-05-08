@@ -21,7 +21,9 @@ ESPHome Power Monitor allows you to track your UnRaid server's power consumption
 
 Sample ESPHome configuration is located in the `sample` directory of this repository.
 
-# Enable the web server for API access
+## Enable the web server for API access
+
+```yaml
 api:
   password: "your_secure_password"  # Optional but recommended
 
