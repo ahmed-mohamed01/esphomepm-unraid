@@ -3,23 +3,16 @@ Icon="esphomepm.png"
 Title="ESPHome Power Monitor"
 ---
 <?php
-// Include Unraid utility functions for CSRF protection
-require_once '/usr/local/emhttp/webGui/include/Helpers.php';
-
 $esphomepm_cfg = parse_plugin_cfg("esphomepm",true);
 $esphomepm_device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
 $esphomepm_device_name = isset($esphomepm_cfg['DEVICE_NAME']) ? $esphomepm_cfg['DEVICE_NAME'] : "Unraid Server PM";
 $esphomepm_uirefresh = isset($esphomepm_cfg['UIREFRESH']) ? $esphomepm_cfg['UIREFRESH'] : "1000";
 $esphomepm_costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.27";
 $esphomepm_costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
-
-// Generate CSRF token
-$csrf_token = csrf_token();
 ?>
 
 <form markdown="1" method="POST" action="/update.php" target="progressFrame">
 <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
-<input type="hidden" name="csrf_token" value="<?=$csrf_token;?>" />
 
 Device Name:
 : <input id="DEVICE_NAME" type="text" class="stopped" name="DEVICE_NAME" maxlength="50" value="<?=$esphomepm_device_name;?>" title="" placeholder="ESPHome Device Name" >  
@@ -146,20 +139,15 @@ async function loadMonthlyCostData() {
 // Function to update monthly cost data with today's reading
 async function updateMonthlyCostData(dailyEnergy, costPrice) {
     try {
-        // Get CSRF token from the page
-        const csrfToken = document.querySelector('input[name="csrf_token"]')?.value || '';
-        
         // Send the update to the server
         const response = await fetch('/plugins/esphomepm/monthly_data.php', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': csrfToken
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify({
                 dailyEnergy: dailyEnergy,
-                costPrice: costPrice,
-                csrf_token: csrfToken
+                costPrice: costPrice
             })
         });
         

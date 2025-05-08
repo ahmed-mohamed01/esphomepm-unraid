@@ -6,14 +6,13 @@ error_reporting(0);
 // Set content type to JSON
 header('Content-Type: application/json');
 
-// Parse the configuration file
-$config_file = '/boot/config/plugins/esphomepm/esphomepm.cfg';
-$config = parse_ini_file($config_file);
+// Parse the configuration using Unraid's function
+$esphomepm_cfg = parse_plugin_cfg("esphomepm", true);
 
 // Get device IP and cost settings
-$device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : '';
-$costs_price = isset($config['COSTS_PRICE']) ? $config['COSTS_PRICE'] : '0.27';
-$costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : 'GBP';
+$device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : '';
+$costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : '0.27';
+$costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : 'GBP';
 
 // Cache settings
 $cache_file = '/tmp/esphomepm_cache.json';
