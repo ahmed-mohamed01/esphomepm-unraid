@@ -565,14 +565,23 @@ function updatePowerGraph(power) {
     
     // Update the chart with smooth animation for flowing effect
     if (powerChart) {
-        // Enable animation for the flowing effect
+        // Configure animation for smooth transitions
         powerChart.options.animation = {
-            duration: Math.min(parseInt(document.getElementById('UIREFRESH').value) || 2000, 2000) * 0.8,
-            easing: 'linear'
+            duration: 750,  // Fixed animation duration for consistency
+            easing: 'cubic-bezier(0.4, 0, 0.2, 1)',  // Smooth easing function
+            from: (ctx) => {
+                if (ctx.type === 'data') {
+                    // Interpolate from the previous value for smoother transitions
+                    const datasetMeta = powerChart.getDatasetMeta(ctx.datasetIndex);
+                    const previous = datasetMeta.data[ctx.index - 1];
+                    return previous ? previous.y : ctx.to;
+                }
+                return ctx.to;
+            }
         };
         
         // Update with animation
-        powerChart.update();
+        powerChart.update('active');
     }
 }
 
