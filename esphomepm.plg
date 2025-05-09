@@ -15,7 +15,7 @@
 <CHANGES>
 ##&name;
 ###2025.05.09.1
-- improvement: third attempt to make the graph smoother and animated
+- fix: fixed graph glitches. 
 
 ###2025.05.09
 - improvement: second attempt to make the graph smoother and animated
