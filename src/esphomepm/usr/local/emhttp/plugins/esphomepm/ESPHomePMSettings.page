@@ -565,23 +565,23 @@ function updatePowerGraph(power) {
     
     // Update the chart with smooth animation for flowing effect
     if (powerChart) {
-        // Configure animation for smooth transitions
-        powerChart.options.animation = {
-            duration: 750,  // Fixed animation duration for consistency
-            easing: 'cubic-bezier(0.4, 0, 0.2, 1)',  // Smooth easing function
-            from: (ctx) => {
-                if (ctx.type === 'data') {
-                    // Interpolate from the previous value for smoother transitions
-                    const datasetMeta = powerChart.getDatasetMeta(ctx.datasetIndex);
-                    const previous = datasetMeta.data[ctx.index - 1];
-                    return previous ? previous.y : ctx.to;
+        // Configure smooth transitions
+        powerChart.options.animation = false;  // Disable default animations
+        powerChart.options.transitions = {
+            active: {
+                animation: {
+                    duration: 0  // Immediate update for new data
                 }
-                return ctx.to;
             }
         };
         
-        // Update with animation
-        powerChart.update('active');
+        // Enable smooth line transitions
+        powerChart.options.elements.line = {
+            tension: 0.4  // Add slight curve to lines for smoother appearance
+        };
+        
+        // Update without rebuilding the entire chart
+        powerChart.update('none');
     }
 }
 
