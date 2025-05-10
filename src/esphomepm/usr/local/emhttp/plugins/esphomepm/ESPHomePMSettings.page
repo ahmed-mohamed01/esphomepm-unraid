@@ -90,10 +90,12 @@ Unit for cost calculation:
                     <tr>
                         <td colspan="3" style="padding-top: 15px;">
                             <div style="display: flex; align-items: center;">
-                                <input type="checkbox" id="resetConfirmation" style="margin-right: 10px;">
-                                <label for="resetConfirmation">This will delete all monthly history data. Today's energy usage cannot be reset as it's fetched directly from ESPHome.</label>
+                                <button id="resetDataButton" class="btn btn-warning" style="background-color: #E68A00; color: #000; margin-right: 15px;" disabled>RESET MONTHLY DATA</button>
+                                <div style="display: flex; align-items: center;">
+                                    <input type="checkbox" id="resetConfirmation" style="margin-right: 10px;">
+                                    <label for="resetConfirmation" style="color: #999;">I want to reset monthly usage data</label>
+                                </div>
                             </div>
-                            <button id="resetDataButton" class="btn btn-warning" style="margin-top: 10px; background-color: #E68A00; color: #000;" disabled>RESET MONTHLY DATA</button>
                         </td>
                     </tr>
                 </tfoot>
