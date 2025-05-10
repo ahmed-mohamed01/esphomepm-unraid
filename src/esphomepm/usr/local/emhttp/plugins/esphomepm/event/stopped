@@ -1,16 +1,20 @@
 #!/bin/bash
-# ESPHome Power Monitor - Event handler for plugin stop
-# This script cleans up any scheduled tasks
+# ESPHome Power Monitor - Event handler for plugin stop/uninstall
+# Delegates cron job removal.
 
-LOG_FILE="/tmp/esphomepm_events.log"
+PLUGIN_PATH="/usr/local/emhttp/plugins/esphomepm"
+LOG_FILE="/tmp/esphomepm_events.log" # Or your preferred log location
 
-echo "$(date): ESPHome Power Monitor plugin stopped" >> "$LOG_FILE"
+echo "$(date): ESPHome Power Monitor plugin stopped/uninstalled event" >> "$LOG_FILE"
 
-# Remove any scheduled jobs
-echo "Removing scheduled jobs" >> "$LOG_FILE"
-for job in $(atq | cut -f1); do
-  at -c "$job" | grep -q "monthly_data.php --daily-update" && atrm "$job"
-done
+# Delegate cron job removal to monthly_data.php
+echo "Delegating cron job removal to monthly_data.php..." >> "$LOG_FILE"
+php "$PLUGIN_PATH/monthly_data.php" --action=remove_cron_job >> "$LOG_FILE" 2>&1
+if [ $? -eq 0 ]; then
+  echo "Cron job removal delegated successfully." >> "$LOG_FILE"
+else
+  echo "ERROR: monthly_data.php --action=remove_cron_job returned an error." >> "$LOG_FILE"
+fi
 
-echo "$(date): Cleanup complete" >> "$LOG_FILE"
+echo "$(date): Plugin stop/uninstall event processing complete." >> "$LOG_FILE"
 exit 0

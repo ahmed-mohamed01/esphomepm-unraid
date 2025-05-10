@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.10.11">
+<!ENTITY version   "2025.05.10.12">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,6 +14,9 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.05.10.12
+- fix: attempt to fix monthly data handling and esphome api calls
+
 ###2025.05.10.11
 ###2025.05.10.10
 ###2025.05.10.9
@@ -124,6 +127,11 @@
 ###2025.05.07a
 - Initial release.
 </CHANGES>
+
+<!-- Event handling for plugin lifecycle -->
+<EVENT name="plugin_started" SCRIPT="event/started" />
+<EVENT name="plugin_stopped" SCRIPT="event/stopped" />
+<EVENT name="plugin_uninstalled" SCRIPT="event/stopped" />
 
 <!-- Plugin package -->
 <FILE Name="&plgPATH;/&plgNAME;.txz" Min="6.9.1" Run="upgradepkg --install-new">

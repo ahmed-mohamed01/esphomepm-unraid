@@ -11,7 +11,7 @@ $esphomepm_costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['
 $esphomepm_costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
 ?>
 
-<form markdown="1" method="POST" action="/update.php" target="progressFrame">
+<form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
 <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
 
 Device Name:
@@ -31,8 +31,11 @@ Unit for cost calculation:
 : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
 
  <input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
-: <input id="btnApply" type="submit" value="Apply"><input type="button" value="Done" onClick="done()">
+: <input id="btnApply" type="button" value="Apply"><input type="button" value="Done" onClick="done()">
 </form>
+
+<!-- Add a feedback area -->
+<div id="applyFeedback" style="margin-top: 10px; font-weight: bold;"></div>
 
 <style>
     .value-display {
@@ -117,39 +120,102 @@ function resetDATA(form) {
     form.COSTS_UNIT.value = "GBP";
     
     // Submit the form to save the default values
-    form.submit();
+    // We'll let the new apply logic handle submission if needed, or just reset fields.
+    // For now, just resetting fields. If user clicks apply after, new logic runs.
+    // form.submit(); // Commented out to prevent immediate submission before new logic runs
 }
 
 function done() {
     window.location.href = '/Main';
 }
 
-// Function to load monthly cost data from server
-// Function to initialize data files
+// --- NEW SCRIPT LOGIC FOR APPLY BUTTON ---
+document.addEventListener('DOMContentLoaded', function() {
+    const applyButton = document.getElementById('btnApply');
+    const settingsForm = document.getElementById('esphomepmSettingsForm');
+    const deviceIpInput = document.getElementById('DEVICE_IP');
+    const feedbackElement = document.getElementById('applyFeedback');
+
+    if (applyButton) {
+        applyButton.addEventListener('click', async function(event) {
+            event.preventDefault(); // Stop direct form submission
+
+            const deviceIp = deviceIpInput.value.trim();
+            feedbackElement.textContent = 'Processing...';
+            feedbackElement.style.color = 'orange';
+
+            let setupSuccess = false;
+            let setupMessage = 'Configuration saved. Device setup status unknown.';
+
+            if (deviceIp) {
+                try {
+                    console.log(`Attempting to setup device and cron for IP: ${deviceIp}`);
+                    const fetchUrl = `/plugins/esphomepm/monthly_data.php?action=setup_device_and_cron&device_ip=${encodeURIComponent(deviceIp)}&t=${new Date().getTime()}`;
+                    const response = await fetch(fetchUrl);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    const data = await response.json();
+                    console.log('Response from setup_device_and_cron:', data);
+
+                    if (data.success) {
+                        setupSuccess = true;
+                        setupMessage = data.message || 'Device configured and cron job setup successfully.';
+                        feedbackElement.style.color = 'green';
+                    } else {
+                        setupMessage = `Device Setup: ${data.message || 'Failed to configure device or setup cron.'}`;
+                        feedbackElement.style.color = 'red';
+                    }
+                } catch (error) {
+                    console.error('Error calling setup_device_and_cron:', error);
+                    setupMessage = `Error during device setup: ${error.message}. Other settings will still be saved.`;
+                    feedbackElement.style.color = 'red';
+                }
+            } else {
+                setupMessage = 'No Device IP provided. Other settings will be saved. Cron job not configured or may be removed if previously set.';
+                feedbackElement.style.color = 'orange'; 
+            }
+            
+            feedbackElement.textContent = setupMessage;
+
+            console.log('Submitting form to /update.php to save all settings.');
+            if (settingsForm) {
+                settingsForm.submit(); 
+            }
+
+            if (setupSuccess) {
+                // updateDeviceStatus(); // Refresh status after successful setup
+            }
+        });
+    }
+});
+// --- END NEW SCRIPT LOGIC FOR APPLY BUTTON ---
+
+/*
+// Function to initialize data files (DEPRECATED as action=init is no longer supported)
 async function initializeDataFiles() {
     try {
-        console.log('Initializing data files...');
-        const timestamp = new Date().getTime();
-        const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}&action=init`);
-        
-        if (!response.ok) {
-            console.error(`Failed to initialize data files: ${response.status}`);
-            return false;
-        }
-        
-        const result = await response.json();
-        console.log('Initialization result:', result);
-        return result.success;
+        console.warn('initializeDataFiles() called, but action=init is deprecated. Data files should be auto-created if needed.');
+        // const timestamp = new Date().getTime();
+        // const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}&action=init`);
+        // if (!response.ok) {
+        //     console.error(`Failed to initialize data files: ${response.status}`);
+        //     return false;
+        // }
+        // const result = await response.json();
+        // console.log('Initialization result:', result);
+        // return result.success;
+        return true; // Assume success
     } catch (error) {
         console.error('Error initializing data files:', error);
         return false;
     }
 }
+*/
 
 async function loadMonthlyCostData() {
     try {
-        // First ensure data files are initialized
-        await initializeDataFiles();
+        // await initializeDataFiles(); // DEPRECATED CALL
         
         const timestamp = new Date().getTime();
         console.log('Loading monthly data with ensure_today=1...');

@@ -1,76 +1,35 @@
 #!/bin/bash
 # ESPHome Power Monitor - Event handler for plugin start
-# This script sets up the daily update to run at midnight
+# Ensures plugin directory exists and delegates cron setup.
 
 PLUGIN_PATH="/usr/local/emhttp/plugins/esphomepm"
-LOG_FILE="/tmp/esphomepm_events.log"
+CONFIG_DIR="/boot/config/plugins/esphomepm"
+LOG_FILE="/tmp/esphomepm_events.log" # Or your preferred log location
 
-echo "$(date): ESPHome Power Monitor plugin started" >> "$LOG_FILE"
+echo "$(date): ESPHome Power Monitor plugin started event" >> "$LOG_FILE"
 
-# Create the at job for midnight
-echo "Setting up daily update job for midnight" >> "$LOG_FILE"
-
-# Remove any existing jobs first
-for job in $(atq | cut -f1); do
-  at -c "$job" | grep -q "monthly_data.php --daily-update" && atrm "$job"
-done
-
-# Schedule the job for midnight
-echo "php $PLUGIN_PATH/monthly_data.php --daily-update" | at -t "$(date -d 'tomorrow 00:00:00' '+%Y%m%d%H%M.%S')" 2>> "$LOG_FILE"
-
-# Also run it now to ensure we have today's data
-echo "Running initial update" >> "$LOG_FILE"
-
-# Make sure the script is executable
-chmod +x "$PLUGIN_PATH/monthly_data.php"
-
-# Ensure the config directory exists with proper permissions
-mkdir -p /boot/config/plugins/esphomepm
-
-# Set proper permissions for the directory
-chmod 755 /boot/config/plugins/esphomepm
-echo "Set permissions on config directory" >> "$LOG_FILE"
-
-# Ensure data files exist even if ESPHome device is not available
-echo "Creating initial data files if needed..." >> "$LOG_FILE"
-php "$PLUGIN_PATH/create_data_files.php" >> "$LOG_FILE" 2>&1
-
-# Set proper permissions for the data files
-chmod 644 /boot/config/plugins/esphomepm/*.json 2>/dev/null
-echo "Set permissions on data files" >> "$LOG_FILE"
-
-# Run the update with retries
-for i in {1..3}; do
-  echo "Attempt $i to run initial update..." >> "$LOG_FILE"
-  
-  # Run the update and capture the output
-  UPDATE_OUTPUT=$(php "$PLUGIN_PATH/monthly_data.php" --daily-update 2>&1)
-  UPDATE_STATUS=$?
-  
-  # Log the output and status
-  echo "Update output: $UPDATE_OUTPUT" >> "$LOG_FILE"
-  echo "Update status: $UPDATE_STATUS" >> "$LOG_FILE"
-  
-  # If the update succeeded, break the loop
-  if [ $UPDATE_STATUS -eq 0 ]; then
-    echo "Initial update succeeded on attempt $i" >> "$LOG_FILE"
-    break
-  fi
-  
-  # If we've reached the last attempt and it still failed
-  if [ $i -eq 3 ]; then
-    echo "All attempts to run initial update failed, trying with debugging..." >> "$LOG_FILE"
-    php -d display_errors=1 -d error_reporting=E_ALL "$PLUGIN_PATH/monthly_data.php" --daily-update >> "$LOG_FILE" 2>&1
-    
-    # Even if update fails, ensure data files exist and have proper permissions
-    echo "Ensuring data files exist after failed update..." >> "$LOG_FILE"
-    php "$PLUGIN_PATH/create_data_files.php" >> "$LOG_FILE" 2>&1
-    chmod 644 /boot/config/plugins/esphomepm/*.json 2>/dev/null
+# Ensure the base config directory exists with proper permissions
+if [ ! -d "$CONFIG_DIR" ]; then
+  mkdir -p "$CONFIG_DIR" >> "$LOG_FILE" 2>&1
+  if [ $? -eq 0 ]; then
+    echo "Created config directory: $CONFIG_DIR" >> "$LOG_FILE"
   else
-    echo "Attempt $i failed, waiting before retry..." >> "$LOG_FILE"
-    sleep 2
+    echo "ERROR: Failed to create config directory: $CONFIG_DIR" >> "$LOG_FILE"
+    # Optionally, exit if this critical step fails
   fi
-done
+fi
+chmod 755 "$CONFIG_DIR" >> "$LOG_FILE" 2>&1
+echo "Ensured config directory $CONFIG_DIR exists with 755 permissions." >> "$LOG_FILE"
 
-echo "$(date): Setup complete" >> "$LOG_FILE"
+# Delegate cron job management to monthly_data.php
+# This PHP script will check if an IP is configured before adding/updating the cron job.
+echo "Delegating cron job setup to monthly_data.php..." >> "$LOG_FILE"
+php "$PLUGIN_PATH/monthly_data.php" --action=ensure_cron_exists_if_configured >> "$LOG_FILE" 2>&1
+if [ $? -eq 0 ]; then
+  echo "Cron job management delegated successfully." >> "$LOG_FILE"
+else
+  echo "ERROR: monthly_data.php --action=ensure_cron_exists_if_configured returned an error." >> "$LOG_FILE"
+fi
+
+echo "$(date): Plugin start event processing complete." >> "$LOG_FILE"
 exit 0

@@ -3,12 +3,56 @@
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 ini_set('log_errors', 1);
-ini_set('error_log', '/tmp/esphomepm_monthly_data.log');
+ini_set('error_log', '/tmp/esphomepm_monthly_data.log'); // Dedicated log for this script
 
 // Check if running from command line
 $is_cli = (php_sapi_name() === 'cli');
 
-// Set headers for JSON response if not in CLI mode
+// --- BEGIN NEW CLI AND GLOBAL DEFINITIONS ---
+$plugin_abs_path = '/usr/local/emhttp/plugins/esphomepm'; // Absolute path for cron
+$config_file = '/boot/config/plugins/esphomepm/esphomepm.cfg'; // Defined globally
+
+if ($is_cli) {
+    $options = getopt("", ["action:", "daily-update"]); // Added daily-update for direct call
+    $cli_action = null;
+
+    if (isset($options['action'])) {
+        $cli_action = $options['action'];
+    } elseif (isset($options['daily-update'])) { // Handle direct --daily-update call
+        $cli_action = 'daily_update';
+    }
+
+    if ($cli_action) {
+        error_log("CLI action called: $cli_action");
+        switch ($cli_action) {
+            case 'ensure_cron_exists_if_configured':
+                manageCronJob(true); // True to add/ensure
+                exit(0);
+            case 'remove_cron_job':
+                manageCronJob(false); // False to remove
+                exit(0);
+            case 'daily_update':
+                // Ensure config dir exists, as performDailyUpdate might rely on it for loadConfig
+                if (!file_exists(dirname($config_file))) {
+                    // Attempt to create config directory if called directly and it's missing
+                    if (!mkdir(dirname($config_file), 0755, true)) {
+                        error_log("CLI daily_update: Failed to create config directory " . dirname($config_file) . ". Exiting.");
+                        exit(1); // Exit if dir creation fails, as loadConfig will fail
+                    }
+                    error_log("CLI daily_update: Created config directory " . dirname($config_file));
+                }
+                performDailyUpdate();
+                exit(0);
+            default:
+                error_log("Unknown CLI action: $cli_action");
+                echo "Unknown CLI action: $cli_action\n";
+                exit(1);
+        }
+    }
+}
+// --- END NEW CLI AND GLOBAL DEFINITIONS ---
+
+// Set headers for JSON response if not in CLI mode (and no CLI action caused an exit)
 if (!$is_cli) {
     header('Content-Type: application/json');
 }
@@ -18,9 +62,6 @@ $data_file = '/boot/config/plugins/esphomepm/monthly_data.json';
 
 // Path to daily data file
 $daily_data_file = '/boot/config/plugins/esphomepm/daily_data.json';
-
-// Path to config file
-$config_file = '/boot/config/plugins/esphomepm/esphomepm.cfg';
 
 // Ensure the directory exists with proper permissions
 if (!file_exists(dirname($data_file))) {
@@ -564,16 +605,153 @@ function resetData() {
     }
 }
 
+// Function to manage cron job
+function manageCronJob($add = true) {
+    global $config_file, $plugin_abs_path;
+    $cron_script_path = $plugin_abs_path . "/monthly_data.php";
+    $cron_command_action = "--daily-update";
+    $cron_schedule = "0 0 * * *"; // Daily at midnight
+    $cron_identifier = "#esphomepm-daily-update"; // Unique comment
+
+    $full_cron_command = "{$cron_schedule} php {$cron_script_path} {$cron_command_action} {$cron_identifier}";
+
+    error_log("manageCronJob called with add=" . ($add ? 'true' : 'false'));
+
+    // Ensure loadConfig function is available. If it's defined later, this might be an issue.
+    // Consider defining loadConfig earlier or ensuring this function is called when it's available.
+    if (!function_exists('loadConfig')) {
+        error_log("manageCronJob: loadConfig function not found. Cannot proceed.");
+        return false;
+    }
+
+    $current_crontab = shell_exec('crontab -l 2>/dev/null');
+    $cron_jobs = empty($current_crontab) ? [] : explode("\n", trim($current_crontab));
+    $new_cron_jobs = [];
+    $job_modified = false;
+    $our_job_found_and_removed = false;
+
+    foreach ($cron_jobs as $job) {
+        if (empty(trim($job))) continue;
+        if (strpos($job, $cron_identifier) !== false) {
+            $our_job_found_and_removed = true;
+            error_log("manageCronJob: Found existing job, removing: $job");
+            continue;
+        }
+        $new_cron_jobs[] = $job;
+    }
+
+    if ($add) {
+        $config = loadConfig(); 
+        if (!empty($config['device_ip'])) {
+            error_log("manageCronJob: ESPHome IP is configured ('{$config['device_ip']}'). Adding cron job: $full_cron_command");
+            $new_cron_jobs[] = $full_cron_command;
+            $job_modified = true; 
+        } else {
+            error_log("manageCronJob: ESPHome IP not configured. Cron job will not be added.");
+            if ($our_job_found_and_removed) { 
+                $job_modified = true;
+            }
+        }
+    } else { 
+        error_log("manageCronJob: Explicitly removing cron job.");
+        if ($our_job_found_and_removed) {
+            $job_modified = true; 
+        }
+    }
+
+    if ($job_modified) {
+        // Ensure crontab content always ends with a newline for robustness
+        $cron_content = empty($new_cron_jobs) ? "\n" : implode("\n", $new_cron_jobs) . "\n";
+        
+        $temp_crontab_file = '/tmp/esphomepm_crontab.txt';
+        if (file_put_contents($temp_crontab_file, $cron_content) === false) {
+            error_log("manageCronJob: Failed to write temporary crontab file to {$temp_crontab_file}.");
+            return false;
+        }
+        
+        $cmd_output = shell_exec("crontab {$temp_crontab_file} 2>&1");
+        unlink($temp_crontab_file); // Clean up temporary file
+
+        if (strpos($cmd_output, 'installing new crontab') !== false || empty($cmd_output) || $cmd_output === null) {
+             error_log("manageCronJob: Crontab update likely succeeded. Command output (if any): " . trim($cmd_output) . ". Content:\n" . trim($cron_content));
+        } else {
+            // Some systems output errors or status messages not indicating pure success
+            error_log("manageCronJob: Crontab update command executed. Output: " . trim($cmd_output) . ". Content:\n" . trim($cron_content));
+        }
+        return true;
+    } else {
+        error_log("manageCronJob: No changes made to crontab.");
+        return false; 
+    }
+}
+
 // Handle GET request - return the data
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     // Check if this is a reset request
     if (isset($_GET['action']) && $_GET['action'] === 'reset') {
         error_log("GET request with reset action, performing data reset");
-        $result = resetData();
-        echo json_encode($result);
-        exit;
+        $result = resetData(); 
+        if (is_array($result) || is_object($result)) {
+            echo json_encode($result);
+        } else {
+            echo json_encode(['success' => (bool)$result, 'message' => 'Reset processed.']);
+        }
+        exit; 
     }
-    
+    // --- BEGIN NEW WEB ACTION setup_device_and_cron ---
+    elseif (isset($_GET['action']) && $_GET['action'] === 'setup_device_and_cron') {
+        error_log("Web action called: setup_device_and_cron");
+        $response = ['success' => false, 'message' => 'Initial error during setup.'];
+        global $config_file; // Ensure $config_file is accessible from global scope
+
+        $new_device_ip = isset($_GET['device_ip']) ? trim($_GET['device_ip']) : null;
+
+        if (empty($new_device_ip) || filter_var($new_device_ip, FILTER_VALIDATE_IP) === false) {
+            $response['message'] = 'Device IP not provided or invalid.';
+            error_log($response['message'] . " IP received: '" . htmlspecialchars($new_device_ip) . "'");
+        } else {
+            // Attempt to save the new IP to the config file
+            $config_content = "device_ip=" . $new_device_ip . "\n"; // Basic ini-like format
+            // Add other config options here if they exist, by loading existing config first
+
+            if (file_put_contents($config_file, $config_content) !== false) {
+                chmod($config_file, 0644); // Set permissions
+                error_log("Device IP '$new_device_ip' saved to $config_file");
+
+                // Now that IP is saved, try to perform an initial update.
+                // performDailyUpdate() loads the config, gets data, and updates JSON files.
+                $update_result = performDailyUpdate(); // This function should return success/failure status or details
+
+                if ($update_result && (!isset($update_result['success']) || $update_result['success'] === true)) {
+                    error_log("Initial data update successful after IP save.");
+                    // Now, set up the cron job as IP is saved and device is reachable
+                    if (manageCronJob(true)) { // True to add/update cron job
+                        $response['success'] = true;
+                        $response['message'] = 'Device IP saved, data initialized, and cron job setup successfully.';
+                        error_log($response['message']);
+                    } else {
+                        $response['message'] = 'Device IP saved, data initialized, but failed to setup cron job (manageCronJob returned false).';
+                        error_log($response['message']);
+                        // success remains false
+                    }
+                } else {
+                    $error_detail = isset($update_result['error']) ? $update_result['error'] : 'performDailyUpdate returned false or error.';
+                    $response['message'] = "Device IP saved, but initial data update failed: $error_detail. Cron job NOT setup.";
+                    error_log($response['message']);
+                    // IP is saved, but since we couldn't fetch data, we don't set up cron.
+                    // The user might need to check the IP or device.
+                    // We will still try to set cron on plugin start if IP is in config.
+                    // However, for this specific action, we report failure to setup cron.
+                }
+            } else {
+                $response['message'] = "Failed to save device IP to config file: $config_file";
+                error_log($response['message']);
+            }
+        }
+        echo json_encode($response);
+        exit; // Exit after handling action
+    }
+    // --- END NEW WEB ACTION setup_device_and_cron ---
     // Check if this is an initialization request
     if (isset($_GET['action']) && $_GET['action'] === 'init') {
         error_log("GET request with init action, initializing data files");
