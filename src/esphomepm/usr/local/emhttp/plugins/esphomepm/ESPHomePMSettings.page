@@ -114,7 +114,8 @@ function done() {
 async function loadMonthlyCostData() {
     try {
         const timestamp = new Date().getTime();
-        const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}`);
+        // Add ensure_today=1 parameter to force an update if needed
+        const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}&ensure_today=1`);
         if (!response.ok) {
             throw new Error(`Failed to load monthly data: ${response.status}`);
         }

@@ -20,7 +20,23 @@ echo "php $PLUGIN_PATH/monthly_data.php --daily-update" | at -t "$(date -d 'tomo
 
 # Also run it now to ensure we have today's data
 echo "Running initial update" >> "$LOG_FILE"
-php "$PLUGIN_PATH/monthly_data.php" --daily-update >> "$LOG_FILE" 2>&1
+
+# Make sure the script is executable
+chmod +x "$PLUGIN_PATH/monthly_data.php"
+
+# Run the update and capture the output
+UPDATE_OUTPUT=$(php "$PLUGIN_PATH/monthly_data.php" --daily-update 2>&1)
+UPDATE_STATUS=$?
+
+# Log the output and status
+echo "Update output: $UPDATE_OUTPUT" >> "$LOG_FILE"
+echo "Update status: $UPDATE_STATUS" >> "$LOG_FILE"
+
+# If the update failed, try again with more debugging
+if [ $UPDATE_STATUS -ne 0 ]; then
+  echo "Initial update failed, trying again with debugging..." >> "$LOG_FILE"
+  php -d display_errors=1 -d error_reporting=E_ALL "$PLUGIN_PATH/monthly_data.php" --daily-update >> "$LOG_FILE" 2>&1
+fi
 
 echo "$(date): Setup complete" >> "$LOG_FILE"
 exit 0

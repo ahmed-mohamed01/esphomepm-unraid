@@ -325,6 +325,8 @@ function performDailyUpdate() {
         return ['error' => 'Failed to get energy data', 'success' => false];
     }
     
+    error_log("Successfully retrieved energy data: power={$energy_data['power']}W, energy={$energy_data['total_energy']}kWh");
+    
     // Update energy data
     return updateEnergyData($energy_data['total_energy'], $cost_price, $energy_data['power']);
 }
@@ -426,6 +428,12 @@ function updateEnergyData($daily_energy, $cost_price, $power = 0) {
 
 // Handle GET request - return the data
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    // Check if we need to ensure today's data is included
+    if (isset($_GET['ensure_today']) && $_GET['ensure_today'] === '1') {
+        error_log("GET request with ensure_today flag, performing update");
+        performDailyUpdate();
+    }
+    
     echo json_encode(loadData());
     exit;
 }
@@ -541,3 +549,4 @@ if ($is_cli) {
         exit(1);
     }
 }
+?>
