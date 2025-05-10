@@ -15,6 +15,8 @@
 <CHANGES>
 ##&name;
 ###2025.05.10.3
+- fix: attempt to fix monthly data handling and esphome api calls
+
 ###2025.05.10.2
 ###2025.05.10.1
 ###2025.05.10
