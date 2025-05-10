@@ -125,8 +125,32 @@ function done() {
 }
 
 // Function to load monthly cost data from server
+// Function to initialize data files
+async function initializeDataFiles() {
+    try {
+        console.log('Initializing data files...');
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}&action=init`);
+        
+        if (!response.ok) {
+            console.error(`Failed to initialize data files: ${response.status}`);
+            return false;
+        }
+        
+        const result = await response.json();
+        console.log('Initialization result:', result);
+        return result.success;
+    } catch (error) {
+        console.error('Error initializing data files:', error);
+        return false;
+    }
+}
+
 async function loadMonthlyCostData() {
     try {
+        // First ensure data files are initialized
+        await initializeDataFiles();
+        
         const timestamp = new Date().getTime();
         console.log('Loading monthly data with ensure_today=1...');
         

@@ -22,42 +22,63 @@ $daily_data_file = '/boot/config/plugins/esphomepm/daily_data.json';
 // Path to config file
 $config_file = '/boot/config/plugins/esphomepm/esphomepm.cfg';
 
-// Ensure the directory exists
+// Ensure the directory exists with proper permissions
 if (!file_exists(dirname($data_file))) {
-    mkdir(dirname($data_file), 0755, true);
+    error_log("Creating directory: " . dirname($data_file));
+    $result = mkdir(dirname($data_file), 0755, true);
+    if (!$result) {
+        error_log("Failed to create directory: " . dirname($data_file));
+    } else {
+        error_log("Successfully created directory: " . dirname($data_file));
+    }
+}
+
+// Verify directory permissions
+if (file_exists(dirname($data_file))) {
+    $perms = substr(sprintf('%o', fileperms(dirname($data_file))), -4);
+    error_log("Directory permissions: " . $perms . " for " . dirname($data_file));
+    
+    // Try to ensure the directory is writable
+    if (!is_writable(dirname($data_file))) {
+        error_log("Directory is not writable, attempting to fix: " . dirname($data_file));
+        chmod(dirname($data_file), 0755);
+    }
 }
 
 // Function to load data
 function loadData() {
     global $data_file;
     
+    // Check if data file exists
     if (file_exists($data_file)) {
-        try {
-            $json_data = file_get_contents($data_file);
-            error_log("Loading data from file: $json_data");
-            
-            $data = json_decode($json_data, true);
-            
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log("JSON decode error: " . json_last_error_msg());
-                // Return a new data structure if JSON is invalid
-                return initializeNewData();
-            }
-            
-            // Validate the data structure
-            if (!isset($data['startDate']) || !isset($data['months']) || !is_array($data['months'])) {
-                error_log("Invalid data structure, reinitializing");
-                return initializeNewData();
-            }
-            
+        error_log("Loading data from existing file: $data_file");
+        $json_data = file_get_contents($data_file);
+        if ($json_data === false) {
+            error_log("Failed to read data file: $data_file");
+            $data = initializeNewData();
+            saveData($data); // Save the initialized data
             return $data;
-        } catch (Exception $e) {
-            error_log("Exception loading data: " . $e->getMessage());
-            return initializeNewData();
         }
+        
+        $data = json_decode($json_data, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("Failed to parse JSON data: " . json_last_error_msg());
+            $data = initializeNewData();
+            saveData($data); // Save the initialized data
+            return $data;
+        }
+        
+        return $data;
     } else {
-        error_log("Data file does not exist, creating new data");
-        return initializeNewData();
+        error_log("Data file does not exist: $data_file, initializing new data");
+        $data = initializeNewData();
+        $result = saveData($data); // Save the initialized data
+        if (!$result) {
+            error_log("Failed to save initialized data to: $data_file");
+        } else {
+            error_log("Successfully created and saved new data file: $data_file");
+        }
+        return $data;
     }
 }
 
@@ -65,33 +86,36 @@ function loadData() {
 function loadDailyData() {
     global $daily_data_file;
     
+    // Check if daily data file exists
     if (file_exists($daily_data_file)) {
-        try {
-            $json_data = file_get_contents($daily_data_file);
-            error_log("Loading daily data from file: $json_data");
-            
-            $data = json_decode($json_data, true);
-            
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log("JSON decode error for daily data: " . json_last_error_msg());
-                // Return a new data structure if JSON is invalid
-                return initializeNewDailyData();
-            }
-            
-            // Validate the data structure
-            if (!isset($data['days']) || !is_array($data['days'])) {
-                error_log("Invalid daily data structure, reinitializing");
-                return initializeNewDailyData();
-            }
-            
+        error_log("Loading daily data from existing file: $daily_data_file");
+        $json_data = file_get_contents($daily_data_file);
+        if ($json_data === false) {
+            error_log("Failed to read daily data file: $daily_data_file");
+            $data = initializeNewDailyData();
+            saveDailyData($data); // Save the initialized data
             return $data;
-        } catch (Exception $e) {
-            error_log("Exception loading daily data: " . $e->getMessage());
-            return initializeNewDailyData();
         }
+        
+        $data = json_decode($json_data, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("Failed to parse daily JSON data: " . json_last_error_msg());
+            $data = initializeNewDailyData();
+            saveDailyData($data); // Save the initialized data
+            return $data;
+        }
+        
+        return $data;
     } else {
-        error_log("Daily data file does not exist, creating new data");
-        return initializeNewDailyData();
+        error_log("Daily data file does not exist: $daily_data_file, initializing new data");
+        $data = initializeNewDailyData();
+        $result = saveDailyData($data); // Save the initialized data
+        if (!$result) {
+            error_log("Failed to save initialized daily data to: $daily_data_file");
+        } else {
+            error_log("Successfully created and saved new daily data file: $daily_data_file");
+        }
+        return $data;
     }
 }
 
@@ -541,13 +565,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
     
+    // Check if this is an initialization request
+    if (isset($_GET['action']) && $_GET['action'] === 'init') {
+        error_log("GET request with init action, initializing data files");
+        
+        // Ensure both data files exist
+        $monthly_data = loadData();
+        $daily_data = loadDailyData();
+        
+        // Try to update with current values if possible
+        $update_result = performDailyUpdate();
+        
+        $result = [
+            'success' => true,
+            'monthly_data_exists' => file_exists($data_file),
+            'daily_data_exists' => file_exists($daily_data_file),
+            'update_result' => $update_result
+        ];
+        
+        echo json_encode($result);
+        exit;
+    }
+    
     // Check if we need to ensure today's data is included
     if (isset($_GET['ensure_today']) && $_GET['ensure_today'] === '1') {
         error_log("GET request with ensure_today flag, performing update");
         performDailyUpdate();
     }
     
-    echo json_encode(loadData());
+    // Load data and ensure it exists
+    $data = loadData();
+    
+    // Also ensure daily data exists
+    loadDailyData();
+    
+    echo json_encode($data);
     exit;
 }
 
