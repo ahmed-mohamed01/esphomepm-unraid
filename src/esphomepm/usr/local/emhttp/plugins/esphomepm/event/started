@@ -1,0 +1,26 @@
+#!/bin/bash
+# ESPHome Power Monitor - Event handler for plugin start
+# This script sets up the daily update to run at midnight
+
+PLUGIN_PATH="/usr/local/emhttp/plugins/esphomepm"
+LOG_FILE="/tmp/esphomepm_events.log"
+
+echo "$(date): ESPHome Power Monitor plugin started" >> "$LOG_FILE"
+
+# Create the at job for midnight
+echo "Setting up daily update job for midnight" >> "$LOG_FILE"
+
+# Remove any existing jobs first
+for job in $(atq | cut -f1); do
+  at -c "$job" | grep -q "monthly_data.php --daily-update" && atrm "$job"
+done
+
+# Schedule the job for midnight
+echo "php $PLUGIN_PATH/monthly_data.php --daily-update" | at -t "$(date -d 'tomorrow 00:00:00' '+%Y%m%d%H%M.%S')" 2>> "$LOG_FILE"
+
+# Also run it now to ensure we have today's data
+echo "Running initial update" >> "$LOG_FILE"
+php "$PLUGIN_PATH/monthly_data.php" --daily-update >> "$LOG_FILE" 2>&1
+
+echo "$(date): Setup complete" >> "$LOG_FILE"
+exit 0

@@ -240,16 +240,20 @@ function displayMonthlyCostData(data, costUnit) {
         const monthName = monthDate.toLocaleString('default', { month: 'long' });
         const displayMonth = `${monthName} ${year}`;
         
+        // Get the energy and cost values, handling potential undefined values
+        const energy = typeof monthData.energy === 'number' ? monthData.energy : 0;
+        const cost = typeof monthData.cost === 'number' ? monthData.cost : 0;
+        
         row.innerHTML = `
             <td>${displayMonth}</td>
-            <td>${monthData.energy.toFixed(2)}</td>
-            <td>${monthData.cost.toFixed(2)} ${costUnit}</td>
+            <td>${energy.toFixed(2)}</td>
+            <td>${cost.toFixed(2)} ${costUnit}</td>
         `;
         
         tableBody.appendChild(row);
         
-        totalCost += monthData.cost;
-        totalEnergy += monthData.energy;
+        totalCost += cost;
+        totalEnergy += energy;
     });
     
     // Update the total
@@ -260,7 +264,14 @@ function displayMonthlyCostData(data, costUnit) {
     const startDate = new Date(data.startDate);
     const startMonth = startDate.toLocaleString('default', { month: 'long' });
     document.getElementById('totalSinceDate').textContent = `${startMonth} ${startDate.getFullYear()}`;
-    document.getElementById('monitoringSince').textContent = startDate.toLocaleDateString();
+    
+    // Display the last update time if available
+    if (data.lastUpdate) {
+        const lastUpdate = new Date(data.lastUpdate);
+        document.getElementById('monitoringSince').textContent = lastUpdate.toLocaleString();
+    } else {
+        document.getElementById('monitoringSince').textContent = startDate.toLocaleDateString();
+    }
     
     return { totalCost, totalEnergy };
 }

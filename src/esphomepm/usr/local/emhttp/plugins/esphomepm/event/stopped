@@ -1,0 +1,16 @@
+#!/bin/bash
+# ESPHome Power Monitor - Event handler for plugin stop
+# This script cleans up any scheduled tasks
+
+LOG_FILE="/tmp/esphomepm_events.log"
+
+echo "$(date): ESPHome Power Monitor plugin stopped" >> "$LOG_FILE"
+
+# Remove any scheduled jobs
+echo "Removing scheduled jobs" >> "$LOG_FILE"
+for job in $(atq | cut -f1); do
+  at -c "$job" | grep -q "monthly_data.php --daily-update" && atrm "$job"
+done
+
+echo "$(date): Cleanup complete" >> "$LOG_FILE"
+exit 0
