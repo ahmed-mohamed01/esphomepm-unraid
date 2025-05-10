@@ -303,9 +303,27 @@ function loadConfig() {
     }
 }
 
+// Function to check for existing data files
+function checkForExistingData() {
+    global $data_file, $daily_data_file;
+    
+    $result = [
+        'monthly_exists' => file_exists($data_file),
+        'daily_exists' => file_exists($daily_data_file)
+    ];
+    
+    error_log("Checking for existing data: Monthly=" . ($result['monthly_exists'] ? 'Yes' : 'No') . 
+              ", Daily=" . ($result['daily_exists'] ? 'Yes' : 'No'));
+    
+    return $result;
+}
+
 // Function to perform daily update of energy data
 function performDailyUpdate() {
     error_log("Performing daily update at " . date('Y-m-d H:i:s'));
+    
+    // Check for existing data
+    $existing_data = checkForExistingData();
     
     // Load configuration
     $config = loadConfig();
@@ -327,12 +345,12 @@ function performDailyUpdate() {
     
     error_log("Successfully retrieved energy data: power={$energy_data['power']}W, energy={$energy_data['total_energy']}kWh");
     
-    // Update energy data
-    return updateEnergyData($energy_data['total_energy'], $cost_price, $energy_data['power']);
+    // Update energy data with force flag to ensure today's data is included
+    return updateEnergyData($energy_data['total_energy'], $cost_price, $energy_data['power'], true);
 }
 
 // Function to update hourly energy reading and calculate daily/monthly totals
-function updateEnergyData($daily_energy, $cost_price, $power = 0) {
+function updateEnergyData($daily_energy, $cost_price, $power = 0, $force_update = false) {
     try {
         error_log("updateEnergyData: Processing update with energy=$daily_energy, price=$cost_price, power=$power");
         
@@ -406,6 +424,13 @@ function updateEnergyData($daily_energy, $cost_price, $power = 0) {
         }
         
         error_log("updateEnergyData: Calculated monthly total energy: $monthly_total_energy kWh from " . count($days_in_month) . " days");
+        
+        // Make sure today's data is included in the monthly total
+        if ((!isset($days_in_month[$today]) || $force_update) && $daily_energy > 0) {
+            error_log("updateEnergyData: Today's data not in monthly calculation or force update, adding it now");
+            $days_in_month[$today] = $daily_energy;
+            $monthly_total_energy += $daily_energy;
+        }
         
         // Update the month's data
         $monthly_data['months'][$current_month]['energy'] = $monthly_total_energy;

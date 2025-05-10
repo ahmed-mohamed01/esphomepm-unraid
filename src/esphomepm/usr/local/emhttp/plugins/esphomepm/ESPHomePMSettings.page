@@ -114,12 +114,42 @@ function done() {
 async function loadMonthlyCostData() {
     try {
         const timestamp = new Date().getTime();
+        console.log('Loading monthly data with ensure_today=1...');
+        
         // Add ensure_today=1 parameter to force an update if needed
         const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}&ensure_today=1`);
         if (!response.ok) {
             throw new Error(`Failed to load monthly data: ${response.status}`);
         }
-        return await response.json();
+        
+        const data = await response.json();
+        console.log('Monthly data received:', data);
+        
+        // Check if we have valid data
+        if (!data || !data.months) {
+            console.error('Invalid monthly data format');
+            return null;
+        }
+        
+        // Check if we have data for the current month
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        if (!data.months[currentMonth]) {
+            console.log(`No data for current month ${currentMonth}, trying to update...`);
+            // Try to update the data again with a direct POST request
+            await updateMonthlyData();
+            
+            // Load the data again
+            const refreshResponse = await fetch(`/plugins/esphomepm/monthly_data.php?t=${new Date().getTime()}`);
+            if (refreshResponse.ok) {
+                const refreshData = await refreshResponse.json();
+                console.log('Refreshed monthly data:', refreshData);
+                return refreshData;
+            }
+        }
+        
+        return data;
     } catch (error) {
         console.error('Error loading monthly data:', error);
         // Return empty data structure if loading fails
@@ -230,6 +260,27 @@ function displayMonthlyCostData(data, costUnit) {
     
     let totalCost = 0;
     let totalEnergy = 0;
+    
+    // Check if we have any months
+    if (sortedMonths.length === 0) {
+        console.log('No months data available, adding current month');
+        // If no months data, add the current month with the current daily values
+        const now = new Date();
+        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        
+        // Get the daily cost and energy from the UI if available
+        const dailyEnergy = parseFloat(document.getElementById('dailyEnergy')?.textContent || '0');
+        const dailyCost = parseFloat(document.getElementById('dailyCost')?.textContent || '0');
+        
+        if (dailyEnergy > 0 || dailyCost > 0) {
+            console.log(`Adding current month with daily values: energy=${dailyEnergy}, cost=${dailyCost}`);
+            data.months[currentMonth] = {
+                energy: dailyEnergy,
+                cost: dailyCost
+            };
+            sortedMonths.push(currentMonth);
+        }
+    }
     
     sortedMonths.forEach(month => {
         const monthData = data.months[month];
