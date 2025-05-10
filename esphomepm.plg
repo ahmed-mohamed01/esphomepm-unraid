@@ -176,7 +176,7 @@
     
     # Remove plugin configuration
     # Comment out the next line if you want to preserve user settings
-    #rm -rf /boot/config/plugins/&name;
+    rm -rf /boot/config/plugins/&name;
     
     # Remove any plugin files that might have been left behind
     find /boot/config/plugins -name "&name;*" -delete
