@@ -710,7 +710,7 @@ function setupResetDataButton() {
         
         // Send a request to the server to reset the data
         try {
-            const response = await fetch('/plugins/esphomepm/reset_data.php');
+            const response = await fetch('/plugins/esphomepm/monthly_data.php?action=reset');
             if (!response.ok) {
                 throw new Error(`Failed to reset data: ${response.status}`);
             }

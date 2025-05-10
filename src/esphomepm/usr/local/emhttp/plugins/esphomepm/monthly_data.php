@@ -451,8 +451,96 @@ function updateEnergyData($daily_energy, $cost_price, $power = 0, $force_update 
     }
 }
 
+// Function to reset data while preserving current day's energy
+function resetData() {
+    error_log("Resetting data at " . date('Y-m-d H:i:s'));
+    
+    try {
+        // Load configuration
+        $config = loadConfig();
+        $device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : '';
+        $cost_price = isset($config['COSTS_PRICE']) ? floatval($config['COSTS_PRICE']) : 0.27;
+        
+        if (empty($device_ip)) {
+            error_log("Device IP is not configured, cannot reset data properly");
+            return ['error' => 'Device IP not configured', 'success' => false];
+        }
+        
+        // Get current energy data
+        $energy_data = getCurrentEnergyData($device_ip);
+        
+        if ($energy_data === false) {
+            error_log("Failed to get energy data from device during reset");
+            return ['error' => 'Failed to get energy data', 'success' => false];
+        }
+        
+        // Extract current values
+        $daily_energy = floatval($energy_data['total_energy']);
+        $power = floatval($energy_data['power']);
+        $daily_cost = $daily_energy * $cost_price;
+        
+        // Initialize new monthly data structure
+        $today = date('Y-m-d');
+        $currentMonth = date('Y-m');
+        
+        // Create new monthly data structure
+        $monthly_data = [
+            'startDate' => $today,
+            'months' => []
+        ];
+        
+        // Initialize the current month with current day's values
+        $monthly_data['months'][$currentMonth] = [
+            'energy' => $daily_energy,
+            'cost' => $daily_cost
+        ];
+        
+        // Create new daily data structure with current values
+        $daily_data = [
+            'date' => $today,
+            'total_energy' => $daily_energy,
+            'total_cost' => $daily_cost,
+            'hourly_readings' => [
+                [
+                    'time' => date('H:i'),
+                    'energy' => $daily_energy,
+                    'power' => $power
+                ]
+            ]
+        ];
+        
+        // Save the data
+        $monthly_result = saveData($monthly_data);
+        $daily_result = saveDailyData($daily_data);
+        
+        if (!$monthly_result || !$daily_result) {
+            error_log("Failed to save data during reset");
+            return ['error' => 'Failed to save reset data', 'success' => false];
+        }
+        
+        error_log("Data reset successfully with current day's energy: $daily_energy kWh, cost: $daily_cost");
+        return [
+            'success' => true, 
+            'message' => 'Data reset successfully',
+            'current_energy' => $daily_energy,
+            'current_cost' => $daily_cost
+        ];
+    } catch (Exception $e) {
+        error_log("Exception in resetData: " . $e->getMessage());
+        return ['error' => $e->getMessage(), 'success' => false];
+    }
+}
+
 // Handle GET request - return the data
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+    // Check if this is a reset request
+    if (isset($_GET['action']) && $_GET['action'] === 'reset') {
+        error_log("GET request with reset action, performing data reset");
+        $result = resetData();
+        echo json_encode($result);
+        exit;
+    }
+    
     // Check if we need to ensure today's data is included
     if (isset($_GET['ensure_today']) && $_GET['ensure_today'] === '1') {
         error_log("GET request with ensure_today flag, performing update");
