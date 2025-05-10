@@ -1,44 +1,7 @@
 #!/bin/bash
-# ESPHome Power Monitor - Event handler for plugin start
-# Ensures plugin directory exists and delegates cron setup.
 
-PLUGIN_PATH="/usr/local/emhttp/plugins/esphomepm"
-CONFIG_DIR="/boot/config/plugins/esphomepm"
-LOG_FILE="/tmp/esphomepm_events.log" # Or your preferred log location
+# ABSOLUTE MINIMUM TEST
+/bin/echo "$(date): event/started for ESPHomePM executed. Action: $1" > /tmp/esphomepm_EXECUTED_TEST.log
+/bin/chmod 666 /tmp/esphomepm_EXECUTED_TEST.log
 
-echo "$(date): ESPHome Power Monitor plugin started event" >> "$LOG_FILE"
-
-# Ensure the base config directory exists with proper permissions
-if [ ! -d "$CONFIG_DIR" ]; then
-  mkdir -p "$CONFIG_DIR" >> "$LOG_FILE" 2>&1
-  if [ $? -eq 0 ]; then
-    echo "Created config directory: $CONFIG_DIR" >> "$LOG_FILE"
-    if chown nobody:users "$CONFIG_DIR"; then
-      echo "$(date): Ownership of $CONFIG_DIR set to nobody:users." >> "$LOG_FILE"
-    else
-      echo "$(date): WARNING: Failed to set ownership of $CONFIG_DIR to nobody:users." >> "$LOG_FILE"
-    fi
-    if chmod 775 "$CONFIG_DIR"; then
-      echo "$(date): Permissions of $CONFIG_DIR set to 775." >> "$LOG_FILE"
-    else
-      echo "$(date): WARNING: Failed to set permissions of $CONFIG_DIR to 775." >> "$LOG_FILE"
-    fi
-  else
-    echo "ERROR: Failed to create config directory: $CONFIG_DIR" >> "$LOG_FILE"
-    # Optionally, exit if this critical step fails
-  fi
-fi
-echo "Ensured config directory $CONFIG_DIR exists with proper permissions." >> "$LOG_FILE"
-
-# Delegate cron job management to monthly_data.php
-# This PHP script will check if an IP is configured before adding/updating the cron job.
-echo "Delegating cron job setup to monthly_data.php..." >> "$LOG_FILE"
-php "$PLUGIN_PATH/monthly_data.php" --action=ensure_cron_exists_if_configured >> "$LOG_FILE" 2>&1
-if [ $? -eq 0 ]; then
-  echo "Cron job management delegated successfully." >> "$LOG_FILE"
-else
-  echo "ERROR: monthly_data.php --action=ensure_cron_exists_if_configured returned an error." >> "$LOG_FILE"
-fi
-
-echo "$(date): Plugin start event processing complete." >> "$LOG_FILE"
 exit 0
