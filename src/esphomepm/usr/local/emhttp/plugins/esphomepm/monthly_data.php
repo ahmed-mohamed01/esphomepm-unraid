@@ -180,20 +180,22 @@ function saveData($data) {
         
         // Convert to JSON
         $json_data = json_encode($data, JSON_PRETTY_PRINT);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("JSON encode error: " . json_last_error_msg());
+        
+        // Save the data to file
+        $result = file_put_contents($data_file, $json_data);
+        
+        if ($result === false) {
+            error_log("Failed to save data to file: $data_file");
             return false;
         }
         
-        // Write to file
-        if (file_put_contents($data_file, $json_data, LOCK_EX) === false) {
-            error_log("Failed to write to file: $data_file");
-            return false;
-        }
+        // Ensure file has proper permissions
+        chmod($data_file, 0644);
+        error_log("Set permissions on file: $data_file");
         
         return true;
     } catch (Exception $e) {
-        error_log("Exception saving data: " . $e->getMessage());
+        error_log("Exception while saving data: " . $e->getMessage());
         return false;
     }
 }
@@ -203,13 +205,18 @@ function saveDailyData($data) {
     global $daily_data_file;
     
     try {
-        // Ensure the directory exists
-        $dir = dirname($daily_data_file);
-        if (!file_exists($dir)) {
-            if (!mkdir($dir, 0755, true)) {
-                error_log("Failed to create directory: $dir");
+        // Create directory if it doesn't exist
+        if (!file_exists(dirname($daily_data_file))) {
+            error_log("Creating directory: " . dirname($daily_data_file));
+            $result = mkdir(dirname($daily_data_file), 0755, true);
+            if (!$result) {
+                error_log("Failed to create directory: " . dirname($daily_data_file));
                 return false;
             }
+            
+            // Ensure directory has proper permissions
+            chmod(dirname($daily_data_file), 0755);
+            error_log("Set permissions on directory: " . dirname($daily_data_file));
         }
         
         // Add timestamp for debugging
@@ -217,20 +224,22 @@ function saveDailyData($data) {
         
         // Convert to JSON
         $json_data = json_encode($data, JSON_PRETTY_PRINT);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("JSON encode error for daily data: " . json_last_error_msg());
+        
+        // Save the data to file
+        $result = file_put_contents($daily_data_file, $json_data);
+        
+        if ($result === false) {
+            error_log("Failed to save daily data to file: $daily_data_file");
             return false;
         }
         
-        // Write to file
-        if (file_put_contents($daily_data_file, $json_data, LOCK_EX) === false) {
-            error_log("Failed to write to daily data file: $daily_data_file");
-            return false;
-        }
+        // Ensure file has proper permissions
+        chmod($daily_data_file, 0644);
+        error_log("Set permissions on file: $daily_data_file");
         
         return true;
     } catch (Exception $e) {
-        error_log("Exception saving daily data: " . $e->getMessage());
+        error_log("Exception while saving daily data: " . $e->getMessage());
         return false;
     }
 }

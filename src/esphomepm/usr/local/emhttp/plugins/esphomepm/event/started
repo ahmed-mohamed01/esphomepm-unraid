@@ -24,8 +24,20 @@ echo "Running initial update" >> "$LOG_FILE"
 # Make sure the script is executable
 chmod +x "$PLUGIN_PATH/monthly_data.php"
 
-# Ensure the config directory exists
+# Ensure the config directory exists with proper permissions
 mkdir -p /boot/config/plugins/esphomepm
+
+# Set proper permissions for the directory
+chmod 755 /boot/config/plugins/esphomepm
+echo "Set permissions on config directory" >> "$LOG_FILE"
+
+# Ensure data files exist even if ESPHome device is not available
+echo "Creating initial data files if needed..." >> "$LOG_FILE"
+php "$PLUGIN_PATH/create_data_files.php" >> "$LOG_FILE" 2>&1
+
+# Set proper permissions for the data files
+chmod 644 /boot/config/plugins/esphomepm/*.json 2>/dev/null
+echo "Set permissions on data files" >> "$LOG_FILE"
 
 # Run the update with retries
 for i in {1..3}; do
@@ -49,6 +61,11 @@ for i in {1..3}; do
   if [ $i -eq 3 ]; then
     echo "All attempts to run initial update failed, trying with debugging..." >> "$LOG_FILE"
     php -d display_errors=1 -d error_reporting=E_ALL "$PLUGIN_PATH/monthly_data.php" --daily-update >> "$LOG_FILE" 2>&1
+    
+    # Even if update fails, ensure data files exist and have proper permissions
+    echo "Ensuring data files exist after failed update..." >> "$LOG_FILE"
+    php "$PLUGIN_PATH/create_data_files.php" >> "$LOG_FILE" 2>&1
+    chmod 644 /boot/config/plugins/esphomepm/*.json 2>/dev/null
   else
     echo "Attempt $i failed, waiting before retry..." >> "$LOG_FILE"
     sleep 2
