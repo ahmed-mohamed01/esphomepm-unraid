@@ -66,9 +66,24 @@ Unit for cost calculation:
             <canvas id="powerGraph"></canvas>
         </div>
         
-        <h4 style="margin-top: 20px;">Monthly Costs</h4>
-        <div id="monthlyCostsContainer" style="margin-top: 10px;">
-            <table id="monthlyCostsTable" class="tablesorter" style="width: 100%;">
+        <div id="monthlyCosts" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;">
+            <h3>Monthly Energy Costs</h3>
+            <p>Monitoring since: <span id="monitoringSince">-</span></p>
+            <p>Total cost since <span id="totalSinceDate">-</span>: <span id="totalCost">0.00</span> <span id="totalCostUnit">-</span></p>
+            
+            <!-- Reset Data Controls -->
+            <div style="margin: 15px 0; padding: 10px; background-color: #f8f8f8; border-radius: 5px;">
+                <div style="display: flex; align-items: center; margin-bottom: 10px;">
+                    <input type="checkbox" id="resetConfirmation" style="margin-right: 10px;">
+                    <label for="resetConfirmation">I understand this will reset all monthly data history</label>
+                </div>
+                <p style="font-size: 12px; color: #888; margin-bottom: 10px;">
+                    <i class="fa fa-info-circle"></i> This will delete all monthly history data. Today's energy usage cannot be reset as it's fetched directly from ESPHome.
+                </p>
+                <button id="resetDataButton" class="btn btn-default" disabled>Reset Monthly Data</button>
+            </div>
+            
+            <table class="tablesorter">
                 <thead>
                     <tr>
                         <th>Month</th>
@@ -77,7 +92,7 @@ Unit for cost calculation:
                     </tr>
                 </thead>
                 <tbody id="monthlyCostsBody">
-                    <!-- Monthly cost data will be inserted here -->
+                    <!-- Monthly costs will be populated here -->
                 </tbody>
                 <tfoot>
                     <tr>
@@ -649,22 +664,65 @@ function updatePowerGraph(power) {
 }
 
 // Update power data when page loads
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Set up the refresh interval
+    setupRefreshInterval();
+    
     // Initialize the power graph
     initializePowerGraph();
     
-    // Initial setup of refresh interval
-    setupRefreshInterval();
+    // Load the monthly cost data
+    const monthlyCostData = await loadMonthlyCostData();
+    if (monthlyCostData) {
+        const costUnit = document.getElementById('COSTS_UNIT').value || 'GBP';
+        displayMonthlyCostData(monthlyCostData, costUnit);
+    }
     
-    // Update interval when refresh rate changes directly
-    document.getElementById('UIREFRESH').addEventListener('input', function() {
-        // Only update if the field is not empty
-        if (this.value.trim() !== '') {
-            setupRefreshInterval();
-        }
-    });
+    // Update the device status immediately
+    updateDeviceStatus();
+    
+    // Set up the reset data button functionality
+    setupResetDataButton();
 });
 
-// Update power data when IP changes
+// Function to set up the reset data button functionality
+function setupResetDataButton() {
+    const resetConfirmation = document.getElementById('resetConfirmation');
+    const resetDataButton = document.getElementById('resetDataButton');
+    
+    // Enable or disable the button based on the confirmation checkbox
+    resetConfirmation.addEventListener('change', function() {
+        if (this.checked) {
+            resetDataButton.disabled = false;
+        } else {
+            resetDataButton.disabled = true;
+        }
+    });
+    
+    // Handle the reset button click
+    resetDataButton.addEventListener('click', async function() {
+        // Confirm the reset action
+        if (!confirm('Are you sure you want to reset all monthly data history?')) {
+            return;
+        }
+        
+        // Send a request to the server to reset the data
+        try {
+            const response = await fetch('/plugins/esphomepm/reset_data.php');
+            if (!response.ok) {
+                throw new Error(`Failed to reset data: ${response.status}`);
+            }
+            
+            // Reload the monthly cost data
+            const monthlyCostData = await loadMonthlyCostData();
+            if (monthlyCostData) {
+                const costUnit = document.getElementById('COSTS_UNIT').value || 'GBP';
+                displayMonthlyCostData(monthlyCostData, costUnit);
+            }
+        } catch (error) {
+            console.error('Error resetting data:', error);
+        }
+    });
+}
 document.getElementById('DEVICE_IP').addEventListener('change', updateDeviceStatus);
 </script>
