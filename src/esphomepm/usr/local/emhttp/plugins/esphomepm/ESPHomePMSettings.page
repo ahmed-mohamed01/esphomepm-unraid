@@ -71,18 +71,6 @@ Unit for cost calculation:
             <p>Monitoring since: <span id="monitoringSince">-</span></p>
             <p>Total cost since <span id="totalSinceDate">-</span>: <span id="totalCost">0.00</span> <span id="totalCostUnit">-</span></p>
             
-            <!-- Reset Data Controls -->
-            <div style="margin: 15px 0; padding: 10px; background-color: #f8f8f8; border-radius: 5px;">
-                <div style="display: flex; align-items: center; margin-bottom: 10px;">
-                    <input type="checkbox" id="resetConfirmation" style="margin-right: 10px;">
-                    <label for="resetConfirmation">I understand this will reset all monthly data history</label>
-                </div>
-                <p style="font-size: 12px; color: #888; margin-bottom: 10px;">
-                    <i class="fa fa-info-circle"></i> This will delete all monthly history data. Today's energy usage cannot be reset as it's fetched directly from ESPHome.
-                </p>
-                <button id="resetDataButton" class="btn btn-default" disabled>Reset Monthly Data</button>
-            </div>
-            
             <table class="tablesorter">
                 <thead>
                     <tr>
@@ -96,8 +84,17 @@ Unit for cost calculation:
                 </tbody>
                 <tfoot>
                     <tr>
-                        <td colspan="2"><strong>Total since <span id="totalSinceDate">--</span>:</strong></td>
-                        <td><strong><span id="totalCost">--</span> <span id="totalCostUnit">--</span></strong></td>
+                        <td colspan="2"><strong>Total since <span id="totalSinceDate2">--</span>:</strong></td>
+                        <td><strong><span id="totalCost2">--</span> <span id="totalCostUnit2">--</span></strong></td>
+                    </tr>
+                    <tr>
+                        <td colspan="3" style="padding-top: 15px;">
+                            <div style="display: flex; align-items: center;">
+                                <input type="checkbox" id="resetConfirmation" style="margin-right: 10px;">
+                                <label for="resetConfirmation">This will delete all monthly history data. Today's energy usage cannot be reset as it's fetched directly from ESPHome.</label>
+                            </div>
+                            <button id="resetDataButton" class="btn btn-warning" style="margin-top: 10px; background-color: #E68A00; color: #000;" disabled>RESET MONTHLY DATA</button>
+                        </td>
                     </tr>
                 </tfoot>
             </table>
@@ -273,9 +270,6 @@ function displayMonthlyCostData(data, costUnit) {
     // Sort months in descending order
     const sortedMonths = Object.keys(data.months).sort().reverse();
     
-    let totalCost = 0;
-    let totalEnergy = 0;
-    
     // Check if we have any months
     if (sortedMonths.length === 0) {
         console.log('No months data available, adding current month');
@@ -296,6 +290,9 @@ function displayMonthlyCostData(data, costUnit) {
             sortedMonths.push(currentMonth);
         }
     }
+    
+    let totalCost = 0;
+    let totalEnergy = 0;
     
     sortedMonths.forEach(month => {
         const monthData = data.months[month];
@@ -323,24 +320,21 @@ function displayMonthlyCostData(data, costUnit) {
         totalEnergy += energy;
     });
     
-    // Update the total
+    // Update the monitoring since date
+    const startDate = data.startDate || '--';
+    document.getElementById('monitoringSince').textContent = startDate;
+    
+    // Update all total cost displays
     document.getElementById('totalCost').textContent = totalCost.toFixed(2);
+    document.getElementById('totalCost2').textContent = totalCost.toFixed(2);
     document.getElementById('totalCostUnit').textContent = costUnit;
+    document.getElementById('totalCostUnit2').textContent = costUnit;
     
-    // Format the start date
-    const startDate = new Date(data.startDate);
-    const startMonth = startDate.toLocaleString('default', { month: 'long' });
-    document.getElementById('totalSinceDate').textContent = `${startMonth} ${startDate.getFullYear()}`;
+    // Update all total since date displays
+    document.getElementById('totalSinceDate').textContent = startDate;
+    document.getElementById('totalSinceDate2').textContent = startDate;
     
-    // Display the last update time if available
-    if (data.lastUpdate) {
-        const lastUpdate = new Date(data.lastUpdate);
-        document.getElementById('monitoringSince').textContent = lastUpdate.toLocaleString();
-    } else {
-        document.getElementById('monitoringSince').textContent = startDate.toLocaleDateString();
-    }
-    
-    return { totalCost, totalEnergy };
+    return data;
 }
 
 // Function to update power monitoring data
@@ -694,8 +688,10 @@ function setupResetDataButton() {
     resetConfirmation.addEventListener('change', function() {
         if (this.checked) {
             resetDataButton.disabled = false;
+            resetDataButton.classList.add('btn-warning');
         } else {
             resetDataButton.disabled = true;
+            resetDataButton.classList.remove('btn-warning');
         }
     });
     
@@ -706,6 +702,10 @@ function setupResetDataButton() {
             return;
         }
         
+        // Show loading state
+        resetDataButton.disabled = true;
+        resetDataButton.textContent = 'Resetting...';
+        
         // Send a request to the server to reset the data
         try {
             const response = await fetch('/plugins/esphomepm/reset_data.php');
@@ -713,14 +713,31 @@ function setupResetDataButton() {
                 throw new Error(`Failed to reset data: ${response.status}`);
             }
             
+            const result = await response.json();
+            console.log('Reset data result:', result);
+            
             // Reload the monthly cost data
             const monthlyCostData = await loadMonthlyCostData();
             if (monthlyCostData) {
                 const costUnit = document.getElementById('COSTS_UNIT').value || 'GBP';
                 displayMonthlyCostData(monthlyCostData, costUnit);
             }
+            
+            // Reset the checkbox and button
+            resetConfirmation.checked = false;
+            resetDataButton.disabled = true;
+            resetDataButton.textContent = 'RESET MONTHLY DATA';
+            resetDataButton.classList.remove('btn-warning');
+            
+            // Show success message
+            alert('Monthly data has been reset successfully');
         } catch (error) {
             console.error('Error resetting data:', error);
+            alert('Error resetting data: ' + error.message);
+            
+            // Reset button state
+            resetDataButton.disabled = false;
+            resetDataButton.textContent = 'RESET MONTHLY DATA';
         }
     });
 }
