@@ -1,0 +1,20 @@
+1. Purpose of this repo is to build a plugin for unraid that will monitor power usage for the unraid server.
+2. Power usage is obtained using a ESPHome baased plug that is connected to the server.
+3. THis is based on the brilliant tasmotapm-unraid plugin, but adapted for ESPHome: https://github.com/Flippo24/tasmotapm-unraid/
+4. It uses ESPHome Webapi to fetch info from the plug
+5. User can set up the plug with needed info such as: 
+    power - Current power consumption in watts
+    voltage - Current voltage
+    current - Current amperage
+    total_energy - Total energy consumption in kWh
+    today_energy - Today's energy consumption in kWh
+
+    You can find a sample ESPHome config in sample/Sample_localbytes_esphome_config.yaml
+6. Plugin displays current power, voltage, current, daily cost, monthly cost, and a graph in the settign page.
+7. Plugin displays current power, daily cost and total cost in a dashboard tile.
+8. It keeps the daily cost data updated; this happens every day at midnight.
+9. It sums up the dauly cost info in daily_cost (day 1 +day 2 + day 3 + ...) to create current monthly cost.
+10. It sums up the monthly cost info in monthly_cost (month 1 + month 2 + month 3 + ...) to create total cost.
+11. It can display a graph of the current power data. 
+12. It can display monthly cost data.
+
