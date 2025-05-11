@@ -5,8 +5,6 @@ substitutions:
   main_icon: "power-socket-uk"
 
   # Default Relay State
-  # Aka: `restore_mode` in documentation
-  # Options: `RESTORE_DEFAULT_OFF`, `RESTORE_DEFAULT_ON`, `ALWAYS_ON` & `ALWAYS_OFF`
   default_state: "RESTORE_DEFAULT_OFF"
 
 esphome:
@@ -18,30 +16,44 @@ esphome:
           if (id(voltage_multiply) <= 0) id(voltage_multiply) = 0.3;
           if (id(power_multiply) <= 0) id(power_multiply) = 0.133;
           if (id(current_multiply) <= 0) id(current_multiply) = 0.85;
+          
+          // Set initial start date if this is first boot after adding feature
+          if (id(total_start_timestamp) <= 0) {
+            auto time = id(homeassistant_time).now();
+            id(total_start_timestamp) = time.timestamp;
+          }
+          
+          // Check if we need to reset monthly data (new month)
+          auto time = id(homeassistant_time).now();
+          int current_month = time.month;
+          int current_year = time.year;
+          
+          if (id(last_month) != current_month || id(last_year) != current_year) {
+            id(monthly_energy_consumption) = 0.0;
+            id(last_month) = current_month;
+            id(last_year) = current_year;
+            id(monthly_start_timestamp) = time.timestamp;
+          }
 
-  # Automatically add the mac address to the name
-  # so you can use a single firmware for all devices
   name_add_mac_suffix: true
 
   project:
     name: localbytes.plug-pm
-    version: "1.2.0"
+    version: "1.3.0"
 
 esp8266:
   board: esp01_1m
   restore_from_flash: true
   early_pin_init: false
 
-# Enable logging
 logger:
 
-# # This should point to the public location of this yaml file.
 dashboard_import:
   package_import_url: github://LocalBytes/esphome-localbytes-plug/localbytes-plug-pm.yaml@main
 
 ota:
   - platform: esphome
-    password: !secret ota
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid_iot
@@ -49,10 +61,9 @@ wifi:
   use_address: 192.168.10.181
   power_save_mode: high
 
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "${friendly_name}-backup-SSID"
-    password: !secret ap_password
+    password: !secret wifi_password_iot_vlan
 
 captive_portal:
 
@@ -61,63 +72,46 @@ web_server:
 
 time:
   - platform: homeassistant
+    id: homeassistant_time
     timezone: Europe/London
-
-# Enable Home Assistant API
-# api:
-#   encryption:
-#     key: "aoeqt/7/87om4rBoArCnZzdsWO8beZNIcfHpnQsa/+4="
 
 api:
   encryption:
     key: !secret api_key
 
-  services:
-      - service: calibrate_voltage
-        variables:
-          actual_value: float
-        then:
-          - lambda: |-
-              id(voltage_multiply) = actual_value / id(voltage).raw_state;
-          - number.set:
-              id: voltage_factor
-              value: !lambda "return id(voltage_multiply);"
-
-      - service: calibrate_power
-        variables:
-          actual_value: float
-        then:
-          - lambda: |-
-              id(power_multiply) = actual_value / id(power).raw_state;
-          - number.set:
-              id: power_factor
-              value: !lambda "return id(power_multiply);"
-
-      - service: calibrate_current
-        variables:
-          actual_value: float
-        then:
-          - lambda: |-
-              id(current_multiply) = actual_value / id(current).raw_state;
-          - number.set:
-              id: current_factor
-              value: !lambda "return id(current_multiply);"
-
 globals:
-  - id: voltage_multiply
+  # Energy tracking globals
+  - id: total_energy_consumption
     type: float
     restore_value: true
-    initial_value: "0.3"
-
-  - id: power_multiply
+    initial_value: "0.0"
+    
+  - id: monthly_energy_consumption
     type: float
     restore_value: true
-    initial_value: "0.133"
-
-  - id: current_multiply
-    type: float
+    initial_value: "0.0"
+    
+  - id: last_month
+    type: int
     restore_value: true
-    initial_value: "0.805"
+    initial_value: "0"
+    
+  - id: last_year
+    type: int
+    restore_value: true
+    initial_value: "0"
+    
+  # Timestamp tracking when total energy started
+  - id: total_start_timestamp
+    type: int
+    restore_value: true
+    initial_value: "0"
+    
+  # Timestamp tracking when monthly energy started
+  - id: monthly_start_timestamp
+    type: int
+    restore_value: true
+    initial_value: "0"
 
 binary_sensor:
   # Push Button (Toggles Relay When Pressed)
@@ -175,28 +169,8 @@ switch:
     restore_mode: "${default_state}"
     optimistic: true
     on_turn_on:
-      #Flash twice
-      - light.turn_off: led
-      - delay: 0.1s
-      - light.turn_on: led
-      - delay: 0.1s
-      - light.turn_off: led
-      - delay: 0.1s
-      - light.turn_on: led
-      - delay: 0.1s
-      #Final state
       - light.turn_off: led
     on_turn_off:
-      #Flash twice
-      - light.turn_on: led
-      - delay: 0.1s
-      - light.turn_off: led
-      - delay: 0.1s
-      - light.turn_on: led
-      - delay: 0.1s
-      - light.turn_off: led
-      - delay: 0.7s
-      #Final state
       - if:
           condition:
             switch.is_on: relay
@@ -209,53 +183,8 @@ switch:
     icon: "mdi:toggle-switch-off-outline"
     restore_mode: "${default_state}"
     optimistic: true
-    on_turn_on:
-      #Flash thrice
-      - light.turn_off: led
-      - delay: 0.15s
-      - light.turn_on: led
-      - delay: 0.15s
-      - light.turn_off: led
-      - delay: 0.15s
-      - light.turn_on: led
-      - delay: 0.15s
-      - light.turn_off: led
-      - delay: 0.15s
-      - light.turn_on: led
-      - delay: 0.15s
-        #Final state
-      - if:
-          condition:
-            switch.is_off: relay
-          then:
-            light.turn_off: led
-    on_turn_off:
-      #Flash thrice
-      - light.turn_on: led
-      - delay: 0.15s
-      - light.turn_off: led
-      - delay: 0.15s
-      - light.turn_on: led
-      - delay: 0.15s
-      - light.turn_off: led
-      - delay: 0.15s
-      - light.turn_on: led
-      - delay: 0.15s
-      - light.turn_off: led
-      - delay: 0.7s
-      #Final state
-      - if:
-          condition:
-            switch.is_on: relay
-          then:
-            light.turn_on: led
 
 sensor:
-  # WiFi Signal Sensor
-  - platform: wifi_signal
-    name: "WiFi Status"
-    update_interval: 60s
-
   # Power Monitoring
   - platform: hlw8012
     id: power_monitor
@@ -299,53 +228,63 @@ sensor:
       # Multiplication factor from W to kW is 0.001
       - multiply: 0.001
     unit_of_measurement: kWh
-
-# Make calibration factor data readable/setable from home assistant
-number:
+    on_value:
+      then:
+        - lambda: |-
+            // Update both total and monthly energy
+            id(total_energy_consumption) += x;
+            id(monthly_energy_consumption) += x;
+  
+  # Monthly energy sensor
   - platform: template
-    name: "Voltage Calibration Factor"
-    id: voltage_factor
-    icon: "mdi:sine-wave"
-    min_value: 0
-    max_value: 10
-    step: 0.001
-    entity_category: diagnostic
-    mode: box
+    name: "Monthly Energy"
+    id: monthly_energy
+    device_class: energy
+    state_class: "total_increasing" 
+    unit_of_measurement: kWh
+    accuracy_decimals: 3
     lambda: |-
-      return id(voltage_multiply);
-    set_action:
-      lambda: |-
-        id(voltage_multiply) = x;
-
+      return id(monthly_energy_consumption);
+    update_interval: 60s
+    
+  # Total energy sensor
   - platform: template
-    name: "Power Calibration Factor"
-    id: power_factor
-    icon: "mdi:flash"
-    min_value: 0
-    max_value: 10
-    step: 0.001
-    entity_category: diagnostic
-    mode: box
+    name: "Total Energy"
+    id: total_energy
+    device_class: energy
+    state_class: "total_increasing" 
+    unit_of_measurement: kWh
+    accuracy_decimals: 3
     lambda: |-
-      return id(power_multiply);
-    set_action:
-      lambda: |-
-        id(power_multiply) = x;
-
+      return id(total_energy_consumption);
+    update_interval: 60s
+    
+  # Total energy tracking start date
   - platform: template
-    name: "Current Calibration Factor"
-    id: current_factor
-    icon: "mdi:current-ac"
-    min_value: 0
-    max_value: 10
-    step: 0.001
-    entity_category: diagnostic
-    mode: box
+    name: "Total Energy Since"
+    id: total_energy_since
+    icon: "mdi:calendar-start"
+    update_interval: 60s
     lambda: |-
-      return id(current_multiply);
-    set_action:
-      lambda: |-
-        id(current_multiply) = x;
+      time_t timestamp = id(total_start_timestamp);
+      char date_str[30];
+      struct tm *timeinfo = localtime(&timestamp);
+      strftime(date_str, sizeof(date_str), "%d %b %Y", timeinfo);
+      return std::string(date_str);
+      
+  # Monthly energy tracking start date
+  - platform: template
+    name: "Monthly Energy Since"
+    id: monthly_energy_since
+    icon: "mdi:calendar-start"
+    update_interval: 60s
+    lambda: |-
+      time_t timestamp = id(monthly_start_timestamp);
+      char date_str[30];
+      struct tm *timeinfo = localtime(&timestamp);
+      strftime(date_str, sizeof(date_str), "%d %b %Y", timeinfo);
+      return std::string(date_str);
+
 
 # Relay State LED
 output:
@@ -363,5 +302,32 @@ light:
 button:
   - platform: restart
     name: "Restart"
+    
   - platform: factory_reset
     name: "Restart with Factory Default Settings"
+    
+  # Reset Monthly Energy Button
+  - platform: template
+    name: "Reset Monthly Energy"
+    icon: "mdi:refresh"
+    on_press:
+      then:
+        - lambda: |-
+            id(monthly_energy_consumption) = 0.0;
+            auto time = id(homeassistant_time).now();
+            id(monthly_start_timestamp) = time.timestamp;
+            id(last_month) = time.month;
+            id(last_year) = time.year;
+        - logger.log: "Monthly energy consumption reset to 0"
+        
+  # Reset Total Energy Button
+  - platform: template
+    name: "Reset Total Energy"
+    icon: "mdi:counter"
+    on_press:
+      then:
+        - lambda: |-
+            id(total_energy_consumption) = 0.0;
+            auto time = id(homeassistant_time).now();
+            id(total_start_timestamp) = time.timestamp;
+        - logger.log: "Total energy consumption reset to 0"
