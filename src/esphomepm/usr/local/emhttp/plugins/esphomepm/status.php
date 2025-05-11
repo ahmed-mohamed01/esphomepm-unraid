@@ -5,13 +5,10 @@ error_reporting(E_ALL);
 
 // Log errors to a file for debugging
 ini_set('log_errors', 1);
-ini_set('error_log', '/tmp/esphomepm_error.log');
+ini_set('error_log', '/tmp/esphomepm_status_error.log'); // Changed log file name for clarity
 
 // Set content type to JSON
 header('Content-Type: application/json');
-
-// Do NOT include monthly_data.php here to avoid endpoint confusion
-// We'll only include the specific functions we need
 
 // Parse the configuration using Unraid's function with fallback
 try {
@@ -33,73 +30,28 @@ try {
 
 // Get device IP and cost settings with better error handling
 $device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : '';
-$costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : '0.27';
+$costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? floatval($esphomepm_cfg['COSTS_PRICE']) : 0.27;
 $costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : 'GBP';
 
 // Log the configuration for debugging
-error_log("Configuration loaded: Device IP = $device_ip");
+error_log("Configuration loaded: Device IP = $device_ip, Cost Price = $costs_price");
 
 // Cache settings
 $cache_file = '/tmp/esphomepm_cache.json';
-$cache_expiry = 2; // Cache expiry in seconds
-
-// Test mode - return dummy data for testing
-if (isset($_GET['test']) && $_GET['test'] === 'true') {
-    echo json_encode([
-        'Power' => 35.08,
-        'Total' => 0.6,
-        'Voltage' => 242.6,
-        'Current' => 0.244,
-        'Costs_Price' => $costs_price,
-        'Costs_Unit' => $costs_unit
-    ]);
-    exit;
-}
-
-// Check if device IP is set
-if (empty($device_ip)) {
-    echo json_encode([
-        'error' => 'ESPHome Device IP missing',
-        'Power' => 0,
-        'Total' => 0,
-        'Voltage' => 0,
-        'Current' => 0,
-        'Costs_Price' => $costs_price,
-        'Costs_Unit' => $costs_unit
-    ]);
-    exit;
-}
-
-// Check if we have a valid cache file that's not expired
-if (file_exists($cache_file)) {
-    $cache_time = filemtime($cache_file);
-    $current_time = time();
-    
-    // If cache is still valid, use it
-    if (($current_time - $cache_time) < $cache_expiry) {
-        $cached_data = file_get_contents($cache_file);
-        if ($cached_data) {
-            // Add a cache indicator for debugging
-            $data = json_decode($cached_data, true);
-            $data['cached'] = true;
-            echo json_encode($data);
-            exit;
-        }
-    }
-}
+$cache_expiry = 1; // Cache expiry in seconds, reduced for faster updates
 
 // Function to get sensor value with retry and error handling
-function getSensorValue($sensor, $device_ip) {
+// This function seems robust and well-written, keeping it mostly as is.
+function getSensorValue($sensor, $device_ip, $timeout = 2) { // Default timeout for sensor reads
     if (empty($device_ip)) {
-        error_log("getSensorValue: Empty device IP");
-        return 0;
+        error_log("getSensorValue: Empty device IP for sensor $sensor");
+        return ['value' => 0, 'error' => 'Device IP not configured'];
     }
     
     try {
-        // Try both API formats that ESPHome might support
         $urls = [
             "http://$device_ip/sensor/$sensor",  // Standard ESPHome API format
-            "http://$device_ip/api/sensor/$sensor" // Alternative API format
+            // "http://$device_ip/api/sensor/$sensor" // Alternative, often not needed for plain sensor state
         ];
         
         foreach ($urls as $url) {
@@ -108,149 +60,127 @@ function getSensorValue($sensor, $device_ip) {
             $ch = curl_init();
             curl_setopt($ch, CURLOPT_URL, $url);
             curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_TIMEOUT, 10); // Increased timeout
-            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10); // Increased connect timeout
-            curl_setopt($ch, CURLOPT_FAILONERROR, false); // Don't fail on HTTP errors
+            curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+            curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout -1 > 0 ? $timeout -1 : 1); // Connect timeout slightly less
+            curl_setopt($ch, CURLOPT_FAILONERROR, false);
             curl_setopt($ch, CURLOPT_HEADER, false);
-            
-            // Add a user agent to make the request more browser-like
-            curl_setopt($ch, CURLOPT_USERAGENT, 'ESPHomePM-Unraid-Plugin/1.0');
+            curl_setopt($ch, CURLOPT_USERAGENT, 'ESPHomePM-Unraid-Plugin/1.1'); // Updated version
             
             $response = curl_exec($ch);
-            $curl_error = curl_errno($ch);
+            $curl_errno = curl_errno($ch);
             $curl_error_message = curl_error($ch);
             $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
             
-            if ($curl_error) {
-                error_log("getSensorValue: cURL error $curl_error ($curl_error_message) for $url");
-                continue; // Try next URL format
+            if ($curl_errno) {
+                error_log("getSensorValue: cURL error $curl_errno ($curl_error_message) for $url");
+                continue; 
             }
             
             if ($http_code != 200) {
                 error_log("getSensorValue: HTTP error $http_code for $url. Response: $response");
-                continue; // Try next URL format
+                continue; 
             }
             
             error_log("Raw response from $url: $response");
             
-            // Try to parse the response as JSON
             $data = json_decode($response, true);
             
             if (json_last_error() !== JSON_ERROR_NONE) {
-                error_log("getSensorValue: JSON parse error: " . json_last_error_msg() . " for response: $response");
-                
-                // If it's not JSON, check if it's a simple numeric value (some ESPHome endpoints return plain values)
-                if (is_numeric($response)) {
+                if (is_numeric(trim($response))) { // Trim whitespace before numeric check
                     error_log("getSensorValue: Numeric value detected: $response");
-                    return floatval($response);
+                    return ['value' => floatval(trim($response)), 'error' => null];
                 }
-                
-                continue; // Try next URL format
+                error_log("getSensorValue: JSON parse error: " . json_last_error_msg() . " for response: $response");
+                continue; 
             }
             
-            // Handle different response formats from ESPHome
             if (isset($data['value'])) {
-                $value = floatval($data['value']);
-                error_log("Sensor $sensor value: $value (from 'value' field)");
-                return $value;
+                return ['value' => floatval($data['value']), 'error' => null];
             } else if (isset($data['state'])) {
-                $value = floatval($data['state']);
-                error_log("Sensor $sensor value: $value (from 'state' field)");
-                return $value;
+                return ['value' => floatval($data['state']), 'error' => null];
             } else if (is_numeric($data)) {
-                $value = floatval($data);
-                error_log("Sensor $sensor value: $value (direct numeric value)");
-                return $value;
+                return ['value' => floatval($data), 'error' => null];
             }
             
             error_log("getSensorValue: Unexpected data format for $sensor: " . json_encode($data));
         }
         
-        // If we get here, all URL formats failed
-        error_log("getSensorValue: All URL formats failed for sensor $sensor");
-        return 0;
+        error_log("getSensorValue: All URL formats failed for sensor $sensor on $device_ip");
+        return ['value' => 0, 'error' => "Failed to fetch $sensor"];
     } catch (Exception $e) {
-        error_log("getSensorValue: Exception: " . $e->getMessage());
-        return 0;
+        error_log("getSensorValue: Exception for $sensor: " . $e->getMessage());
+        return ['value' => 0, 'error' => "Exception fetching $sensor"];
     }
 }
 
-// Prepare the response data
-$response_data = [
-    'Power' => 0,
-    'Total' => 0,
-    'Voltage' => 0,
-    'Current' => 0,
-    'Costs_Price' => $costs_price,
-    'Costs_Unit' => $costs_unit,
-    'cached' => false
-];
-
-// Check if we can connect to the device
-$ch = curl_init();
-curl_setopt($ch, CURLOPT_URL, "http://$device_ip");
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-curl_setopt($ch, CURLOPT_TIMEOUT, 5); // Increased timeout
-curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 5); // Increased connect timeout
-$response = curl_exec($ch);
-$curl_error = curl_errno($ch);
-curl_close($ch);
-
-if ($curl_error) {
-    $response_data['error'] = 'Cannot connect to ESPHome device';
-    echo json_encode($response_data);
+// Handle graph point request
+if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
+    if (empty($device_ip)) {
+        echo json_encode(['power' => 0, 'error' => 'ESPHome Device IP missing']);
+        exit;
+    }
+    $power_data = getSensorValue("power", $device_ip, 1); // Shorter timeout for graph point
+    echo json_encode(['power' => $power_data['value'], 'error' => $power_data['error']]);
     exit;
 }
 
-// Get sensor values with a longer delay between requests to avoid overloading the device
-error_log("Fetching power sensor data");
-$response_data['Power'] = getSensorValue('power', $device_ip);
-usleep(500000); // 500ms delay
+// Standard data request logic
+if (empty($device_ip)) {
+    echo json_encode([
+        'power' => 0, 'today_energy' => 0,
+        'daily_cost' => 0, 'monthly_cost_est' => 0,
+        'costs_price' => $costs_price, 'costs_unit' => $costs_unit,
+        'error' => 'ESPHome Device IP missing'
+    ]);
+    exit;
+}
 
-// Get total daily energy - try multiple possible sensor names
-error_log("Fetching daily energy sensor data");
-$daily_energy = getSensorValue('daily_energy', $device_ip);
-usleep(500000); // 500ms delay
-
-// If daily_energy returns 0, try alternative sensor names
-if ($daily_energy == 0) {
-    error_log("Trying alternative daily energy sensor names");
-    $alternative_names = ['total_daily_energy', 'energy_today', 'daily_power', 'total_energy'];
-    
-    foreach ($alternative_names as $alt_name) {
-        error_log("Trying alternative sensor name: $alt_name");
-        $daily_energy = getSensorValue($alt_name, $device_ip);
-        if ($daily_energy > 0) {
-            error_log("Found working sensor: $alt_name");
-            break;
+// Check cache for standard requests
+if (file_exists($cache_file)) {
+    $cache_time = filemtime($cache_file);
+    if ((time() - $cache_time) < $cache_expiry) {
+        $cached_data_content = file_get_contents($cache_file);
+        if ($cached_data_content) {
+            $data = json_decode($cached_data_content, true);
+            $data['cached'] = true;
+            echo json_encode($data);
+            exit;
         }
-        usleep(500000); // 500ms delay
     }
 }
 
-$response_data['Total'] = $daily_energy;
+// --- Fetch data from ESPHome device for standard request ---
+$error_messages = [];
 
-// Get voltage
-error_log("Fetching voltage sensor data");
-$response_data['Voltage'] = getSensorValue('voltage', $device_ip);
-usleep(500000); // 500ms delay
+$power_data = getSensorValue("power", $device_ip);
+if ($power_data['error']) $error_messages[] = "Power: " . $power_data['error'];
 
-// Get current
-error_log("Fetching current sensor data");
-$response_data['Current'] = getSensorValue('current', $device_ip);
+$total_daily_energy_data = getSensorValue("total_daily_energy", $device_ip);
+if ($total_daily_energy_data['error']) $error_messages[] = "Today Energy: " . $total_daily_energy_data['error'];
 
-// Log the final response data for debugging
-error_log("Final response data: " . json_encode($response_data));
+// Calculations
+$daily_cost = $total_daily_energy_data['value'] * $costs_price;
+$monthly_cost_est = $daily_cost * 30;
 
-// We'll handle monthly data updates through the JavaScript in ESPHomePMSettings.page
-// This avoids endpoint confusion by keeping status.php focused only on current sensor data
-// The monthly data update will be triggered by the JavaScript after it receives the sensor data
+// Prepare response
+$response_data = [
+    'power' => $power_data['value'],
+    'today_energy' => $total_daily_energy_data['value'],
+    'daily_cost' => round($daily_cost, 2),
+    'monthly_cost_est' => round($monthly_cost_est, 2),
+    'costs_price' => $costs_price,
+    'costs_unit' => $costs_unit,
+    'cached' => false,
+    'error' => empty($error_messages) ? null : implode('; ', $error_messages)
+];
 
-// Save the data to cache file for future requests
-file_put_contents($cache_file, json_encode($response_data));
+// Write to cache
+if (empty($error_messages)) { // Only cache if no errors during fetch
+    file_put_contents($cache_file, json_encode($response_data));
+} else {
+    error_log("Not caching due to errors: " . implode('; ', $error_messages));
+}
 
-// Return the data
-error_log("Returning sensor data: " . json_encode($response_data));
 echo json_encode($response_data);
 ?>

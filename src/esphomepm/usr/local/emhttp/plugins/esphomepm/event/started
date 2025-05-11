@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# ABSOLUTE MINIMUM TEST
-/bin/echo "$(date): event/started for ESPHomePM executed. Action: $1" > /tmp/esphomepm_EXECUTED_TEST.log
-/bin/chmod 666 /tmp/esphomepm_EXECUTED_TEST.log
-
-exit 0

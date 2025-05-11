@@ -54,56 +54,20 @@ Unit for cost calculation:
             <div>
                 <p>Current Power: <span id="currentPower" class="value-display">--</span> W</p>
                 <p>Daily Energy: <span id="dailyEnergy" class="value-display">--</span> kWh</p>
-                <p>Voltage: <span id="voltage" class="value-display">--</span> V</p>
-                <p>Current: <span id="current" class="value-display">--</span> A</p>
             </div>
             <div>
-                <p>Daily Cost: <span id="dailyCost" class="value-display">--</span> <span id="costUnit">--</span></p>
-                <p>Monthly Cost (Est.): <span id="monthlyCost" class="value-display">--</span> <span id="costUnitMonthly">--</span></p>
-                <p>Monitoring Since: <span id="monitoringSince">--</span></p>
+                <p>Daily Cost: <span id="dailyCost" class="value-display">--</span> <span id="costUnitDisplay">--</span></p>
+                <p>Monthly Cost (Est.): <span id="monthlyCost" class="value-display">--</span> <span id="costUnitDisplayMonthly">--</span></p>
+                <!-- Monitoring Since REMOVED -->
             </div>
         </div>
         
-        <h4 style="margin-top: 20px;">Power Usage Graph</h4>
+        <h4 style="margin-top: 20px;">Power Usage Graph (Last 60s)</h4>
         <div id="powerGraphContainer" style="margin-top: 10px; height: 250px;">
             <canvas id="powerGraph"></canvas>
         </div>
         
-        <div id="monthlyCosts" style="margin-top: 20px; padding: 10px; border: 1px solid #ccc;">
-            <h3>Monthly Energy Costs</h3>
-            <p>Monitoring since: <span id="monitoringSince">-</span></p>
-            <p>Total cost since <span id="totalSinceDate">-</span>: <span id="totalCost">0.00</span> <span id="totalCostUnit">-</span></p>
-            
-            <table class="tablesorter">
-                <thead>
-                    <tr>
-                        <th>Month</th>
-                        <th>Energy (kWh)</th>
-                        <th>Cost</th>
-                    </tr>
-                </thead>
-                <tbody id="monthlyCostsBody">
-                    <!-- Monthly costs will be populated here -->
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <td colspan="2"><strong>Total since <span id="totalSinceDate2">--</span>:</strong></td>
-                        <td><strong><span id="totalCost2">--</span> <span id="totalCostUnit2">--</span></strong></td>
-                    </tr>
-                    <tr>
-                        <td colspan="3" style="padding-top: 15px;">
-                            <div style="display: flex; align-items: center;">
-                                <button id="resetDataButton" class="btn btn-warning" style="background-color: #E68A00; color: #000; margin-right: 15px;" disabled>RESET MONTHLY DATA</button>
-                                <div style="display: flex; align-items: center;">
-                                    <input type="checkbox" id="resetConfirmation" style="margin-right: 10px;">
-                                    <label for="resetConfirmation" style="color: #999;">I want to reset monthly usage data</label>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
+        <!-- monthlyCosts div and its content REMOVED -->
     </div>
 </div>
 
@@ -111,727 +75,222 @@ Unit for cost calculation:
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 
 <script type="text/javascript">
+// Global variables
+let powerChart = null;
+let refreshInterval = null;
+let graphRefreshInterval = null;
+const graphDataPoints = 60; // Display last 60 seconds of data
+const powerHistory = [];
+const timeHistory = [];
+
+// Utility to update and flash UI elements
+function updateValue(elementId, value, unit = '', flash = true) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        const displayValue = (value === null || value === undefined || isNaN(parseFloat(value))) ? '--' : value;
+        element.textContent = `${displayValue}${unit ? ' ' + unit : ''}`;
+        if (flash && displayValue !== '--') {
+            element.classList.add('value-updated');
+            setTimeout(() => element.classList.remove('value-updated'), 300);
+        }
+    }
+}
+
 function resetDATA(form) {
-    // Reset form values to defaults
     form.DEVICE_IP.value = "";
-    form.DEVICE_NAME.value = "";
-    form.UIREFRESH.value = 1000;
-    form.COSTS_PRICE.value = 0.27;
+    form.DEVICE_NAME.value = "Unraid Server PM"; // Default name
+    form.UIREFRESH.value = "1000";
+    form.COSTS_PRICE.value = "0.27";
     form.COSTS_UNIT.value = "GBP";
-    
-    // Submit the form to save the default values
-    // We'll let the new apply logic handle submission if needed, or just reset fields.
-    // For now, just resetting fields. If user clicks apply after, new logic runs.
-    // form.submit(); // Commented out to prevent immediate submission before new logic runs
 }
 
 function done() {
     window.location.href = '/Main';
 }
 
-// --- NEW SCRIPT LOGIC FOR APPLY BUTTON ---
 document.addEventListener('DOMContentLoaded', function() {
     const applyButton = document.getElementById('btnApply');
     const settingsForm = document.getElementById('esphomepmSettingsForm');
-    const deviceIpInput = document.getElementById('DEVICE_IP');
     const feedbackElement = document.getElementById('applyFeedback');
 
     if (applyButton) {
-        applyButton.addEventListener('click', async function(event) {
-            event.preventDefault(); // Stop direct form submission
-
-            const deviceIp = deviceIpInput.value.trim();
-            feedbackElement.textContent = 'Processing...';
+        applyButton.addEventListener('click', function(event) {
+            event.preventDefault(); 
+            feedbackElement.textContent = 'Saving settings...';
             feedbackElement.style.color = 'orange';
-
-            let setupSuccess = false;
-            let setupMessage = 'Configuration saved. Device setup status unknown.';
-
-            if (deviceIp) {
-                try {
-                    console.log(`Attempting to setup device and cron for IP: ${deviceIp}`);
-                    const fetchUrl = `/plugins/esphomepm/monthly_data.php?action=setup_device_and_cron&device_ip=${encodeURIComponent(deviceIp)}&t=${new Date().getTime()}`;
-                    const response = await fetch(fetchUrl);
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
-                    const data = await response.json();
-                    console.log('Response from setup_device_and_cron:', data);
-
-                    if (data.success) {
-                        setupSuccess = true;
-                        setupMessage = data.message || 'Device configured and cron job setup successfully.';
-                        feedbackElement.style.color = 'green';
-                    } else {
-                        setupMessage = `Device Setup: ${data.message || 'Failed to configure device or setup cron.'}`;
-                        feedbackElement.style.color = 'red';
-                    }
-                } catch (error) {
-                    console.error('Error calling setup_device_and_cron:', error);
-                    setupMessage = `Error during device setup: ${error.message}. Other settings will still be saved.`;
-                    feedbackElement.style.color = 'red';
-                }
-            } else {
-                setupMessage = 'No Device IP provided. Other settings will be saved. Cron job not configured or may be removed if previously set.';
-                feedbackElement.style.color = 'orange'; 
-            }
             
-            feedbackElement.textContent = setupMessage;
-
-            console.log('Submitting form to /update.php to save all settings.');
             if (settingsForm) {
                 settingsForm.submit(); 
             }
-
-            if (setupSuccess) {
-                // updateDeviceStatus(); // Refresh status after successful setup
-            }
+            // Feedback for form submission is tricky with iframe target, this is a generic message.
+            setTimeout(() => {
+                feedbackElement.textContent = 'Settings submitted. Refresh if IP or refresh rate changed.';
+                feedbackElement.style.color = 'green';
+                setupRefreshIntervals(); // Re-initialize intervals with new settings
+                updateDeviceStatus(); // Fetch new data immediately
+            }, 1500); 
         });
     }
+
+    initializePowerGraph();
+    setupRefreshIntervals();
 });
-// --- END NEW SCRIPT LOGIC FOR APPLY BUTTON ---
 
-/*
-// Function to initialize data files (DEPRECATED as action=init is no longer supported)
-async function initializeDataFiles() {
-    try {
-        console.warn('initializeDataFiles() called, but action=init is deprecated. Data files should be auto-created if needed.');
-        // const timestamp = new Date().getTime();
-        // const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}&action=init`);
-        // if (!response.ok) {
-        //     console.error(`Failed to initialize data files: ${response.status}`);
-        //     return false;
-        // }
-        // const result = await response.json();
-        // console.log('Initialization result:', result);
-        // return result.success;
-        return true; // Assume success
-    } catch (error) {
-        console.error('Error initializing data files:', error);
-        return false;
-    }
-}
-*/
+function setupRefreshIntervals() {
+    if (refreshInterval) clearInterval(refreshInterval);
+    if (graphRefreshInterval) clearInterval(graphRefreshInterval);
 
-async function loadMonthlyCostData() {
-    try {
-        // await initializeDataFiles(); // DEPRECATED CALL
-        
-        const timestamp = new Date().getTime();
-        console.log('Loading monthly data with ensure_today=1...');
-        
-        // Add ensure_today=1 parameter to force an update if needed
-        const response = await fetch(`/plugins/esphomepm/monthly_data.php?t=${timestamp}&ensure_today=1`);
-        if (!response.ok) {
-            throw new Error(`Failed to load monthly data: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Monthly data received:', data);
-        
-        // Check if we have valid data
-        if (!data || !data.months) {
-            console.error('Invalid monthly data format');
-            return null;
-        }
-        
-        // Check if we have data for the current month
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        
-        if (!data.months[currentMonth]) {
-            console.log(`No data for current month ${currentMonth}, trying to update...`);
-            // Try to update the data again with a direct POST request
-            await updateMonthlyData();
-            
-            // Load the data again
-            const refreshResponse = await fetch(`/plugins/esphomepm/monthly_data.php?t=${new Date().getTime()}`);
-            if (refreshResponse.ok) {
-                const refreshData = await refreshResponse.json();
-                console.log('Refreshed monthly data:', refreshData);
-                return refreshData;
-            }
-        }
-        
-        return data;
-    } catch (error) {
-        console.error('Error loading monthly data:', error);
-        // Return empty data structure if loading fails
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        const startDate = now.toISOString().split('T')[0];
-        
-        const initialData = {
-            startDate: startDate,
-            months: {}
-        };
-        initialData.months[currentMonth] = { energy: 0, cost: 0 };
-        
-        return initialData;
-    }
+    const uiRefreshRate = parseInt(document.getElementById('UIREFRESH').value, 10) || 1000;
+    
+    updateDeviceStatus(); 
+    refreshInterval = setInterval(updateDeviceStatus, Math.max(uiRefreshRate, 1000));
+
+    fetchGraphDataPoint(); 
+    graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Graph updates every 1 second
 }
 
-// Function to update monthly cost data with today's reading
-async function updateMonthlyCostData(dailyEnergy, costPrice) {
-    try {
-        console.log(`Updating monthly data with dailyEnergy=${dailyEnergy}, costPrice=${costPrice}`);
-        
-        // Validate inputs to prevent sending invalid data
-        if (isNaN(dailyEnergy) || isNaN(costPrice) || dailyEnergy < 0 || costPrice < 0) {
-            console.error('Invalid input values for monthly data update');
-            return await loadMonthlyCostData();
-        }
-        
-        // Prepare the data with proper formatting
-        const updateData = {
-            dailyEnergy: parseFloat(dailyEnergy),
-            costPrice: parseFloat(costPrice)
-        };
-        
-        // Log the data being sent
-        console.log('Sending data to server:', updateData);
-        
-        // Send the update to the server
-        const response = await fetch('/plugins/esphomepm/monthly_data.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(updateData)
-        });
-        
-        // Check for HTTP errors
-        if (!response.ok) {
-            throw new Error(`Failed to update monthly data: ${response.status}`);
-        }
-        
-        // Get the response text first to check if it's valid JSON
-        const responseText = await response.text();
-        console.log('Server response:', responseText);
-        
-        // Check if the response is empty
-        if (!responseText || responseText.trim() === '') {
-            console.error('Empty response from server');
-            
-            // Try a simple ping to the server to check if it's responsive
-            try {
-                const pingResponse = await fetch('/plugins/esphomepm/monthly_data.php?ping=true');
-                if (pingResponse.ok) {
-                    console.log('Server is responsive, but returned empty response for update');
-                } else {
-                    console.error('Server is not responsive:', pingResponse.status);
-                }
-            } catch (pingError) {
-                console.error('Error pinging server:', pingError);
-            }
-            
-            // Wait a moment before retrying
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return await loadMonthlyCostData();
-        }
-        
-        // Try to parse the JSON response
-        let result;
-        try {
-            result = JSON.parse(responseText);
-        } catch (parseError) {
-            console.error('Failed to parse JSON response:', parseError, 'Response was:', responseText);
-            return await loadMonthlyCostData();
-        }
-        
-        // Check for error in the result
-        if (result.error) {
-            console.error('Server returned error:', result.error);
-            return await loadMonthlyCostData();
-        }
-        
-        // Return the data
-        return result.data;
-    } catch (error) {
-        console.error('Error updating monthly data:', error);
-        // If update fails, just return the current data
-        return await loadMonthlyCostData();
-    }
-}
-
-// Function to display monthly cost data in the table
-function displayMonthlyCostData(data, costUnit) {
-    const tableBody = document.getElementById('monthlyCostsBody');
-    tableBody.innerHTML = '';
-    
-    // Sort months in descending order
-    const sortedMonths = Object.keys(data.months).sort().reverse();
-    
-    // Check if we have any months
-    if (sortedMonths.length === 0) {
-        console.log('No months data available, adding current month');
-        // If no months data, add the current month with the current daily values
-        const now = new Date();
-        const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        
-        // Get the daily cost and energy from the UI if available
-        const dailyEnergy = parseFloat(document.getElementById('dailyEnergy')?.textContent || '0');
-        const dailyCost = parseFloat(document.getElementById('dailyCost')?.textContent || '0');
-        
-        if (dailyEnergy > 0 || dailyCost > 0) {
-            console.log(`Adding current month with daily values: energy=${dailyEnergy}, cost=${dailyCost}`);
-            data.months[currentMonth] = {
-                energy: dailyEnergy,
-                cost: dailyCost
-            };
-            sortedMonths.push(currentMonth);
-        }
-    }
-    
-    let totalCost = 0;
-    let totalEnergy = 0;
-    
-    sortedMonths.forEach(month => {
-        const monthData = data.months[month];
-        const row = document.createElement('tr');
-        
-        // Format month for display (YYYY-MM to Month YYYY)
-        const [year, monthNum] = month.split('-');
-        const monthDate = new Date(year, parseInt(monthNum) - 1, 1);
-        const monthName = monthDate.toLocaleString('default', { month: 'long' });
-        const displayMonth = `${monthName} ${year}`;
-        
-        // Get the energy and cost values, handling potential undefined values
-        const energy = typeof monthData.energy === 'number' ? monthData.energy : 0;
-        const cost = typeof monthData.cost === 'number' ? monthData.cost : 0;
-        
-        row.innerHTML = `
-            <td>${displayMonth}</td>
-            <td>${energy.toFixed(2)}</td>
-            <td>${cost.toFixed(2)} ${costUnit}</td>
-        `;
-        
-        tableBody.appendChild(row);
-        
-        totalCost += cost;
-        totalEnergy += energy;
-    });
-    
-    // Update the monitoring since date
-    const startDate = data.startDate || '--';
-    document.getElementById('monitoringSince').textContent = startDate;
-    
-    // Update all total cost displays
-    document.getElementById('totalCost').textContent = totalCost.toFixed(2);
-    document.getElementById('totalCost2').textContent = totalCost.toFixed(2);
-    document.getElementById('totalCostUnit').textContent = costUnit;
-    document.getElementById('totalCostUnit2').textContent = costUnit;
-    
-    // Update all total since date displays
-    document.getElementById('totalSinceDate').textContent = startDate;
-    document.getElementById('totalSinceDate2').textContent = startDate;
-    
-    return data;
-}
-
-// Function to update power monitoring data
 async function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
+    const deviceStatusDiv = document.getElementById('deviceStatus');
+
     if (!deviceIP) {
-        document.getElementById('deviceStatus').style.display = 'none';
+        deviceStatusDiv.style.display = 'none';
         return;
     }
-    
-    document.getElementById('deviceStatus').style.display = 'block';
-    
+    deviceStatusDiv.style.display = 'block';
+
     try {
-        // Add timestamp to prevent caching
         const timestamp = new Date().getTime();
-        
-        // Use our PHP proxy to get the data
         const response = await fetch(`/plugins/esphomepm/status.php?t=${timestamp}`);
         if (!response.ok) {
-            throw new Error(`Network response was not ok: ${response.status}`);
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
         const data = await response.json();
-        console.log('Power data received:', data);
-        
-        // Check if there's an error message
+
         if (data.error) {
-            console.error('Error in data:', data.error);
+            console.error('Error from status.php:', data.error);
+            updateValue('dailyEnergy', data.error, '', false);
+            updateValue('currentPower', 'Error', '', false);
             return;
         }
         
-        // Get cost price and unit
-        const costPrice = parseFloat(data.Costs_Price) || 0.27;
-        const costUnit = data.Costs_Unit || 'GBP';
+        updateValue('currentPower', parseFloat(data.power).toFixed(2), 'W');
+        updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), 'kWh');
         
-        // Function to update a value with smooth transition
-        function updateValueWithTransition(elementId, newValue, decimals = 2) {
-            const element = document.getElementById(elementId);
-            const formattedValue = Number(newValue).toFixed(decimals);
-            
-            // Only apply transition if value has changed
-            if (element.textContent !== formattedValue) {
-                element.textContent = formattedValue;
-                element.classList.add('value-updated');
-                
-                // Remove the highlight class after transition completes
-                setTimeout(() => {
-                    element.classList.remove('value-updated');
-                }, 500);
-            }
-        }
-        
-        // Batch all UI updates together to ensure they happen at the same time
-        // This ensures both numeric values and graph update at exactly the same rate
-        requestAnimationFrame(() => {
-            // Update all values with smooth transitions
-            updateValueWithTransition('currentPower', data.Power);
-            updateValueWithTransition('dailyEnergy', data.Total);
-            updateValueWithTransition('voltage', data.Voltage);
-            updateValueWithTransition('current', data.Current);
-            
-            // Update the power graph with the new power value
-            updatePowerGraph(data.Power);
-        });
-        
-        // Calculate and display costs
-        const dailyEnergy = Number(data.Total);
-        const dailyCost = dailyEnergy * costPrice;
-        const monthlyCost = dailyCost * 30; // Estimate based on 30 days
-        
-        updateValueWithTransition('dailyCost', dailyCost);
-        updateValueWithTransition('monthlyCost', monthlyCost);
-        
-        // Update units
-        document.getElementById('costUnit').textContent = costUnit;
-        document.getElementById('costUnitMonthly').textContent = costUnit;
-        document.getElementById('totalCostUnit').textContent = costUnit;
-        
-        // Update monthly data on the server
-        const monthlyData = await updateMonthlyCostData(dailyEnergy, costPrice);
-        displayMonthlyCostData(monthlyData, costUnit);
+        const costUnit = data.costs_unit || '';
+        document.getElementById('costUnitDisplay').textContent = costUnit;
+        document.getElementById('costUnitDisplayMonthly').textContent = costUnit;
+
+        updateValue('dailyCost', parseFloat(data.daily_cost).toFixed(2));
+        updateValue('monthlyCost', parseFloat(data.monthly_cost_est).toFixed(2));
+
     } catch (error) {
-        console.error('Error fetching power data:', error);
+        console.error('Failed to fetch device status:', error);
+        updateValue('currentPower', 'Error', '', false);
+        updateValue('dailyEnergy', 'Connection Error', '', false);
     }
 }
 
-// Global variables
-let refreshInterval;
-let powerChart;
-let powerData = {
-    labels: [],
-    datasets: [{
-        label: 'Power (W)',
-        data: [],
-        borderColor: '#E68A00',       // Unraid orange color
-        backgroundColor: 'rgba(230, 138, 0, 0.1)', // Transparent orange
-        borderWidth: 3,              // Slightly thicker line
-        fill: true,                  // Fill area under the line
-        tension: 0.6,                // Higher tension for smoother curve
-        pointRadius: 0,              // Remove the dots
-        pointHoverRadius: 4          // Show points only on hover
-    }]
-};
+async function fetchGraphDataPoint() {
+    const deviceIP = document.getElementById('DEVICE_IP').value;
+    if (!deviceIP) return;
 
-// Maximum number of data points to show on the graph
-const MAX_DATA_POINTS = 60; // 2 minutes at 2-second intervals
-
-// Function to set up the refresh interval
-function setupRefreshInterval() {
-    // Clear any existing interval
-    if (refreshInterval) {
-        clearInterval(refreshInterval);
-        refreshInterval = null;
-    }
-    
-    // Get the refresh rate from the input field
-    let refreshRate = parseInt(document.getElementById('UIREFRESH').value) || 1000;
-    
-    // Enforce a minimum refresh rate of 2000ms to prevent overloading the ESPHome device
-    const MIN_REFRESH_RATE = 2000; // 2 seconds minimum
-    if (refreshRate < MIN_REFRESH_RATE) {
-        console.warn(`Refresh rate ${refreshRate}ms is too low and may overload the ESPHome device. Using ${MIN_REFRESH_RATE}ms instead.`);
-        refreshRate = MIN_REFRESH_RATE;
-        // Update the input field to show the actual value being used
-        document.getElementById('UIREFRESH').value = MIN_REFRESH_RATE;
-    }
-    
-    console.log('Setting refresh rate to', refreshRate, 'ms');
-    
-    // Set up new interval if refresh rate is positive
-    if (refreshRate > 0) {
-        // Immediate update
-        updateDeviceStatus();
+    try {
+        const timestamp = new Date().getTime();
+        const response = await fetch(`/plugins/esphomepm/status.php?graph_point=true&t=${timestamp}`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
-        // Set interval for future updates
-        refreshInterval = setInterval(updateDeviceStatus, refreshRate);
-    }
-}
-
-// Function to apply settings without page reload
-function applySettings(form) {
-    // Don't prevent default form submission - let it work normally
-    // The form is already set to submit to /update.php with target="progressFrame"
-    return true;
-};
-
-// This is a backup function that can be used if the normal form submission doesn't work
-function applySettingsAjax(form) {
-    // Get the form data
-    const formData = new FormData(form);
-    
-    // Send the form data to the server
-    fetch('/update.php', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error('Failed to save settings');
+        const data = await response.json();
+        if (data && typeof data.power !== 'undefined' && data.power !== null && !isNaN(parseFloat(data.power))) {
+            updatePowerGraph(parseFloat(data.power));
+        } else if (data.error) {
+            console.warn("Graph data point error:", data.error); // Log error but don't break graph
         }
-        return response.text();
-    })
-    .then(() => {
-        // Update the refresh interval immediately
-        setupRefreshInterval();
-        
-        // Show a success message
-        alert('Settings applied successfully!');
-    })
-    .catch(error => {
-        console.error('Error applying settings:', error);
-        alert('Failed to apply settings: ' + error.message);
-    });
-    
-    return false;
+    } catch (error) {
+        console.error('Failed to fetch graph data point:', error);
+    }
 }
 
-// Function to initialize the power usage graph
 function initializePowerGraph() {
     const ctx = document.getElementById('powerGraph').getContext('2d');
-    
-    // Destroy existing chart if it exists
     if (powerChart) {
         powerChart.destroy();
     }
-    
-    // Create gradient fill for the area under the line (like Unraid dashboard)
-    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(230, 138, 0, 0.4)');  // More opaque at top
-    gradient.addColorStop(0.5, 'rgba(230, 138, 0, 0.1)'); // Semi-transparent in middle
-    gradient.addColorStop(1, 'rgba(230, 138, 0, 0)');    // Transparent at bottom
-    
-    // Update the dataset background
-    powerData.datasets[0].backgroundColor = gradient;
-    
-    // Create the chart with Unraid styling
     powerChart = new Chart(ctx, {
         type: 'line',
-        data: powerData,
+        data: {
+            labels: [], 
+            datasets: [{
+                label: 'Current Power (W)',
+                data: [],  
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderWidth: 1,
+                tension: 0.4, 
+                pointRadius: 0, 
+                pointHitRadius: 10
+            }]
+        },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: {
-                duration: 1000, // Longer animation for smoother flow
-                easing: 'linear' // Linear easing for constant flow speed
-            },
-            elements: {
-                line: {
-                    tension: 0.4 // Smoother curve
-                }
-            },
-            interaction: {
-                mode: 'nearest',
-                axis: 'x',
-                intersect: false
-            },
+            animation: false, // Disable all animations for performance
             scales: {
                 x: {
-                    display: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.05)', // Very subtle grid lines
-                        drawBorder: false
-                    },
-                    title: {
-                        display: false // Hide title for cleaner look
-                    },
+                    type: 'category',
                     ticks: {
-                        maxTicksLimit: 5, // Fewer ticks for cleaner appearance
+                        autoSkip: true,
+                        maxTicksLimit: 10, 
                         maxRotation: 0,
-                        color: 'rgba(255, 255, 255, 0.5)', // Lighter text color
-                        font: {
-                            size: 10 // Smaller font size
-                        }
+                        minRotation: 0
                     }
                 },
                 y: {
-                    display: true,
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.05)', // Very subtle grid lines
-                        drawBorder: false,
-                        z: -1 // Draw grid behind the data
-                    },
-                    title: {
-                        display: false // Hide title for cleaner look
-                    },
-                    ticks: {
-                        color: 'rgba(255, 255, 255, 0.5)', // Lighter text color
-                        padding: 10,
-                        font: {
-                            size: 10 // Smaller font size
-                        },
-                        callback: function(value) {
-                            return value + ' W'; // Add watts unit to y-axis values
-                        }
-                    },
-                    beginAtZero: true
+                    beginAtZero: true,
+                    suggestedMax: 50 
                 }
             },
             plugins: {
-                legend: {
-                    display: false // Hide legend for cleaner look
-                },
-                tooltip: {
-                    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                    titleColor: '#E68A00', // Unraid orange for title
-                    bodyColor: '#FFFFFF',
-                    borderColor: '#E68A00',
-                    borderWidth: 1,
-                    padding: 10,
-                    displayColors: false,
-                    callbacks: {
-                        title: function(tooltipItems) {
-                            return tooltipItems[0].label; // Time
-                        },
-                        label: function(context) {
-                            return 'Power: ' + context.parsed.y.toFixed(2) + ' W';
-                        }
-                    }
-                }
+                legend: { display: false },
+                tooltip: { enabled: false }
             }
         }
     });
+    // Pre-fill labels for 60 points to avoid layout shifts
+    for (let i = 0; i < graphDataPoints; i++) {
+        timeHistory.push('');
+        powerHistory.push(null); // Use null for gaps in Chart.js
+    }
+    powerChart.data.labels = [...timeHistory];
+    powerChart.data.datasets[0].data = [...powerHistory];
+    powerChart.update('none');
 }
 
-// Function to update the power graph with new data
 function updatePowerGraph(power) {
-    // Add current timestamp
+    if (!powerChart) return;
+
     const now = new Date();
-    const timeLabel = now.toLocaleTimeString();
-    
-    // Add new data point
-    powerData.labels.push(timeLabel);
-    powerData.datasets[0].data.push(power);
-    
-    // Limit the number of data points to keep performance good
-    if (powerData.labels.length > MAX_DATA_POINTS) {
-        powerData.labels.shift();
-        powerData.datasets[0].data.shift();
+    const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    powerHistory.push(power);
+    timeHistory.push(timeLabel);
+
+    if (powerHistory.length > graphDataPoints) {
+        powerHistory.shift();
+        timeHistory.shift();
     }
+
+    powerChart.data.labels = [...timeHistory];
+    powerChart.data.datasets[0].data = [...powerHistory];
     
-    // Update the chart with smooth animation for flowing effect
-    if (powerChart) {
-        // Configure smooth transitions
-        powerChart.options.animation = false;  // Disable default animations
-        powerChart.options.transitions = {
-            active: {
-                animation: {
-                    duration: 0  // Immediate update for new data
-                }
-            }
-        };
-        
-        // Enable smooth line transitions
-        powerChart.options.elements.line = {
-            tension: 0.4  // Add slight curve to lines for smoother appearance
-        };
-        
-        // Update without rebuilding the entire chart
-        powerChart.update('none');
+    const maxPower = Math.max(...powerHistory.filter(p => p !== null), 0);
+    if (maxPower > 0) {
+        powerChart.options.scales.y.suggestedMax = Math.ceil(maxPower / 10) * 10 + 20; 
+    } else {
+        powerChart.options.scales.y.suggestedMax = 50; 
     }
+
+    powerChart.update('none'); 
 }
 
-// Update power data when page loads
-document.addEventListener('DOMContentLoaded', async function() {
-    // Set up the refresh interval
-    setupRefreshInterval();
-    
-    // Initialize the power graph
-    initializePowerGraph();
-    
-    // Load the monthly cost data
-    const monthlyCostData = await loadMonthlyCostData();
-    if (monthlyCostData) {
-        const costUnit = document.getElementById('COSTS_UNIT').value || 'GBP';
-        displayMonthlyCostData(monthlyCostData, costUnit);
-    }
-    
-    // Update the device status immediately
-    updateDeviceStatus();
-    
-    // Set up the reset data button functionality
-    setupResetDataButton();
-});
-
-// Function to set up the reset data button functionality
-function setupResetDataButton() {
-    const resetConfirmation = document.getElementById('resetConfirmation');
-    const resetDataButton = document.getElementById('resetDataButton');
-    
-    // Enable or disable the button based on the confirmation checkbox
-    resetConfirmation.addEventListener('change', function() {
-        if (this.checked) {
-            resetDataButton.disabled = false;
-            resetDataButton.classList.add('btn-warning');
-        } else {
-            resetDataButton.disabled = true;
-            resetDataButton.classList.remove('btn-warning');
-        }
-    });
-    
-    // Handle the reset button click
-    resetDataButton.addEventListener('click', async function() {
-        // Confirm the reset action
-        if (!confirm('Are you sure you want to reset all monthly data history?')) {
-            return;
-        }
-        
-        // Show loading state
-        resetDataButton.disabled = true;
-        resetDataButton.textContent = 'Resetting...';
-        
-        // Send a request to the server to reset the data
-        try {
-            const response = await fetch('/plugins/esphomepm/monthly_data.php?action=reset');
-            if (!response.ok) {
-                throw new Error(`Failed to reset data: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            console.log('Reset data result:', result);
-            
-            // Reload the monthly cost data
-            const monthlyCostData = await loadMonthlyCostData();
-            if (monthlyCostData) {
-                const costUnit = document.getElementById('COSTS_UNIT').value || 'GBP';
-                displayMonthlyCostData(monthlyCostData, costUnit);
-            }
-            
-            // Reset the checkbox and button
-            resetConfirmation.checked = false;
-            resetDataButton.disabled = true;
-            resetDataButton.textContent = 'RESET MONTHLY DATA';
-            resetDataButton.classList.remove('btn-warning');
-            
-            // Show success message
-            alert('Monthly data has been reset successfully');
-        } catch (error) {
-            console.error('Error resetting data:', error);
-            alert('Error resetting data: ' + error.message);
-            
-            // Reset button state
-            resetDataButton.disabled = false;
-            resetDataButton.textContent = 'RESET MONTHLY DATA';
-        }
-    });
-}
-document.getElementById('DEVICE_IP').addEventListener('change', updateDeviceStatus);
 </script>
