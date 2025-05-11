@@ -4,7 +4,7 @@
 <!ENTITY author    "Ahmed Mohamed">
 <!ENTITY version   "2025.05.11.7">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
-<!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
+<!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/main">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
 <!ENTITY pkgURL    "&gitURL;/pkg">
 <!ENTITY plgPATH   "/boot/config/plugins/&name;">
