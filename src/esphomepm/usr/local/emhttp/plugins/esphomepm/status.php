@@ -10,34 +10,24 @@ ini_set('error_log', '/tmp/esphomepm_status_error.log'); // Changed log file nam
 // Set content type to JSON
 header('Content-Type: application/json');
 
-// Parse the configuration using Unraid's function with fallback
-try {
-    if (function_exists('parse_plugin_cfg')) {
-        $esphomepm_cfg = parse_plugin_cfg("esphomepm", true);
-    } else {
-        // Fallback to direct file access if function doesn't exist
-        $config_file = '/boot/config/plugins/esphomepm/esphomepm.cfg';
-        if (file_exists($config_file)) {
-            $esphomepm_cfg = parse_ini_file($config_file);
-        } else {
-            $esphomepm_cfg = [];
-        }
+// Load configuration
+$plugin_name = 'esphomepm';
+$cfg_file = "/boot/config/plugins/$plugin_name/$plugin_name.cfg";
+$esphomepm_cfg = [];
+if (file_exists($cfg_file)) {
+    $raw_cfg = parse_ini_file($cfg_file);
+    if ($raw_cfg !== false) {
+        $esphomepm_cfg = $raw_cfg;
     }
-} catch (Exception $e) {
-    error_log("Error parsing config: " . $e->getMessage());
-    $esphomepm_cfg = [];
 }
 
-// Get device IP and cost settings with better error handling
-$device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : '';
-$costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? floatval($esphomepm_cfg['COSTS_PRICE']) : 0.27;
-$costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : 'GBP';
-
-// Log the configuration for debugging
-error_log("Configuration loaded: Device IP = $device_ip, Cost Price = $costs_price");
+// Initialize config variables with defaults
+$device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
+$costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.0"; // Default as string
+$costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "";    // Default as empty string
 
 // Cache settings
-$cache_file = '/tmp/esphomepm_cache.json';
+$cache_file = "/tmp/{$plugin_name}_cache.json";
 $cache_expiry = 1; // Cache expiry in seconds, reduced for faster updates
 
 // Function to get sensor value with retry and error handling
@@ -153,16 +143,23 @@ if (file_exists($cache_file)) {
 // --- Fetch data from ESPHome device for standard request ---
 $error_messages = [];
 
-$power = getSensorValue("power", $device_ip);
-$daily_energy = getSensorValue("daily_energy", $device_ip);
+$power_result = getSensorValue("power", $device_ip);
+$daily_energy_result = getSensorValue("daily_energy", $device_ip);
 
-if ($power === null) {
-    $error_messages[] = "Power: Failed to fetch power sensor";
-    $power = 0; // Default to 0 if fetch failed
+$power = 0;
+if (isset($power_result['value'])) {
+    $power = $power_result['value'];
 }
-if ($daily_energy === null) {
-    $error_messages[] = "Daily Energy: Failed to fetch daily_energy sensor";
-    $daily_energy = 0; // Default to 0 if fetch failed
+if (isset($power_result['error']) && $power_result['error'] !== null) {
+    $error_messages[] = "Power: " . $power_result['error'];
+}
+
+$daily_energy = 0;
+if (isset($daily_energy_result['value'])) {
+    $daily_energy = $daily_energy_result['value'];
+}
+if (isset($daily_energy_result['error']) && $daily_energy_result['error'] !== null) {
+    $error_messages[] = "Daily Energy: " . $daily_energy_result['error'];
 }
 
 // Calculations
