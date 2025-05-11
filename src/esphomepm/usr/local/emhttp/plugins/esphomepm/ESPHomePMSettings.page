@@ -223,8 +223,8 @@ function initializePowerGraph() {
             datasets: [{
                 label: 'Current Power (W)',
                 data: [],  
-                borderColor: 'rgba(75, 192, 192, 1)',
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: '#68B36F', 
+                backgroundColor: 'rgba(104, 179, 111, 0.2)', 
                 borderWidth: 1,
                 tension: 0.4, 
                 pointRadius: 0, 
@@ -252,7 +252,21 @@ function initializePowerGraph() {
             },
             plugins: {
                 legend: { display: false },
-                tooltip: { enabled: false }
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += parseFloat(context.parsed.y).toFixed(2) + ' W';
+                            }
+                            return label;
+                        }
+                    }
+                }
             }
         }
     });
