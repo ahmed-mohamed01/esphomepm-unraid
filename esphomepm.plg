@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.11">
+<!ENTITY version   "2025.05.11.1">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,7 +14,11 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
-###2025.05.11
+###2025.05.11.1
+###2025.05.11.02
+- Corrected expected sensor ID for daily energy to `daily_energy`.
+- Improved error reporting in status.php for sensor fetch failures.
+
 ###2025.05.11.01
 - Simplified plugin: removed historical data, cron jobs, and background processing.
 - Focused on live data: current power, daily energy, and cost estimations.

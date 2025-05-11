@@ -153,23 +153,30 @@ if (file_exists($cache_file)) {
 // --- Fetch data from ESPHome device for standard request ---
 $error_messages = [];
 
-$power_data = getSensorValue("power", $device_ip);
-if ($power_data['error']) $error_messages[] = "Power: " . $power_data['error'];
+$power = getSensorValue("power", $device_ip);
+$daily_energy = getSensorValue("daily_energy", $device_ip);
 
-$total_daily_energy_data = getSensorValue("total_daily_energy", $device_ip);
-if ($total_daily_energy_data['error']) $error_messages[] = "Today Energy: " . $total_daily_energy_data['error'];
+if ($power === null) {
+    $error_messages[] = "Power: Failed to fetch power sensor";
+    $power = 0; // Default to 0 if fetch failed
+}
+if ($daily_energy === null) {
+    $error_messages[] = "Daily Energy: Failed to fetch daily_energy sensor";
+    $daily_energy = 0; // Default to 0 if fetch failed
+}
 
 // Calculations
-$daily_cost = $total_daily_energy_data['value'] * $costs_price;
+$costs_price_numeric = is_numeric($costs_price) ? (float)$costs_price : 0.0; // Ensure costs_price is numeric
+$daily_cost = $daily_energy * $costs_price_numeric;
 $monthly_cost_est = $daily_cost * 30;
 
 // Prepare response
 $response_data = [
-    'power' => $power_data['value'],
-    'today_energy' => $total_daily_energy_data['value'],
+    'power' => $power,
+    'today_energy' => $daily_energy, // Key 'today_energy' for JS, value from 'daily_energy' sensor
     'daily_cost' => round($daily_cost, 2),
     'monthly_cost_est' => round($monthly_cost_est, 2),
-    'costs_price' => $costs_price,
+    'costs_price' => $costs_price, // Original config value for display
     'costs_unit' => $costs_unit,
     'cached' => false,
     'error' => empty($error_messages) ? null : implode('; ', $error_messages)
