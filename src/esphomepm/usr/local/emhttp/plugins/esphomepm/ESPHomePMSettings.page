@@ -174,8 +174,8 @@ async function updateDeviceStatus() {
             return;
         }
         
-        updateValue('currentPower', parseFloat(data.power).toFixed(2), 'W');
-        updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), 'kWh');
+        updateValue('currentPower', parseFloat(data.power).toFixed(2), '');
+        updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), '');
         
         const costUnit = data.costs_unit || '';
         document.getElementById('costUnitDisplay').textContent = costUnit;
