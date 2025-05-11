@@ -1,19 +1,70 @@
-# tasmotapm-unraid
+# ESPHome Power Monitor for UnRaid
 
-With this UnRaid plugin you can turn a Tasmota device into an energy monitor for your server.
-
-I got the idea from [corsairpsu-unraid](https://github.com/CyanLabs/corsairpsu-unraid), but since I don't have a suitable Corsair PSU, I found an alternative in a Tasmota Power Plug.
+This UnRaid plugin enables power monitoring for your server using ESPHome-powered smart plugs or power monitoring devices. It is derived from the excellent [TasmotaPM UnRaid plugin](https://github.com/Flippo24/tasmotapm-unraid) but modified to work with ESPHome's native API.
 
 ## Introduction
 
-Before you start, be sure that you protect your Tasmota device against incorrect operation. So that you don't accidentally turn off your server. I solved this for myself with the command: `PowerOnState 4` This sets the on / off switch in the WebUI and on the device to always on. Therefore, check what would be best for your device before using it. Have a look at the Tasmota Documentation. Use the plugin and device at your own risk. I will not be responsible for any damage.
+ESPHome Power Monitor allows you to track your UnRaid server's power consumption using any ESPHome-compatible device with power monitoring capabilities. The plugin integrates seamlessly with UnRaid's interface and provides real-time power monitoring, energy consumption tracking, and cost calculations.
 
-I use an Aisirer Power Monitoring Plug (AWP07L) with Tasmota firmware 8.5.1 and this template. 
-`{"NAME":"AWP07L","GPIO":[56,255,255,255,255,134,255,255,131,17,132,21,255],"FLAG":0,"BASE":18}`
+## Requirements
 
-## Usage
+1. An ESPHome device with power monitoring sensors (I am using a LocalBytes plug flashed with ESPHome)
+2. The following sensors must be configured in your ESPHome device:
+   - `power` - Current power consumption in watts
+   - `voltage` - Current voltage
+   - `current` - Current amperage
+   - `total_energy` - Total energy consumption in kWh
+   - `today_energy` - Today's energy consumption in kWh
+   - `yesterday_energy` - Yesterday's energy consumption in kWh
 
-Plugins > Install Plugin
+## ESPHome Configuration Example
+
+Sample ESPHome configuration is located in the `sample` directory of this repository.
+
+## Enable the web server for API access
+
+```yaml
+api:
+  password: "your_secure_password"  # Optional but recommended
+
+web_server:
+  port: 80
 ```
-https://raw.githubusercontent.com/Flippo24/tasmotapm-unraid/main/tasmotapm.plg
-```
+
+## Installation
+
+1. In UnRaid, go to Plugins > Install Plugin
+2. Enter the following URL:
+   ```
+   https://raw.githubusercontent.com/ahmed-mohamed01/esphomepm-unraid/main/esphomepm.plg
+   ```
+
+## Configuration
+
+1. Go to Settings > ESPHome Power Monitor
+2. Enter your ESPHome device's IP address`
+4. Set the UI refresh rate (default: 2000ms)
+5. Configure power cost settings: Defaults to GBP and out of contract rate in UK in May 2025 (27p/kWh)
+6. Click Apply
+
+## Security Note
+
+Make sure your ESPHome device is properly secured, especially if it's accessible from outside your local network. It's recommended to:
+1. Enable API password protection
+2. Use encryption for the API if possible
+3. Keep your ESPHome device's firmware up to date
+
+## Troubleshooting
+
+If you're not seeing data:
+1. Verify your ESPHome device is accessible at the configured IP address
+2. Check that all required sensors are properly configured in your ESPHome configuration
+4. Check UnRaid's` system log for any error messages
+
+## Credits
+
+This plugin is derived from the [TasmotaPM UnRaid plugin](https://github.com/Flippo24/tasmotapm-unraid) by Flippo24. Modified to work with ESPHome devices instead of Tasmota.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE.txt file for details.
