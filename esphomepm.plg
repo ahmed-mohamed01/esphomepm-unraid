@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.11.6">
+<!ENTITY version   "2025.05.11.7">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,144 +14,9 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
-###2025.05.11.6
-###2025.05.11.6
+###2025.05.11.7
 - Refactor: Removed UI refresh setting, hardcoded refresh intervals (2s for settings page, 5s for dashboard widget, 1s for graph).
-- Refactor: Removed 1-second caching mechanism in status.php; always fetches fresh data.
-- Refactor: Simplified dashboard widget to display only current power, daily energy, and daily cost.
-###2025.05.11.5
-- Updated graph line color to orange to better match Unraid branding.
-###2025.05.11.4
-- Updated graph line color to orange to better match Unraid branding.
-###2025.05.11.3
-- Changed graph line color to green and added tooltips for power values on hover.
-###2025.05.11.2
-- Fixed duplicated units for power and energy on settings page.
-###2025.05.11.1
-###2025.05.11.02
-- Corrected expected sensor ID for daily energy to `daily_energy`.
-- Improved error reporting in status.php for sensor fetch failures.
 
-###2025.05.11.01
-- Simplified plugin: removed historical data, cron jobs, and background processing.
-- Focused on live data: current power, daily energy, and cost estimations.
-- Removed voltage and current display and data fetching.
-
-###2025.05.10.14
-- test: attempt to fix event system
-###2025.05.10.13
-###2025.05.10.12
-- fix: attempt to fix monthly data handling and esphome api calls
-
-###2025.05.10.11
-###2025.05.10.10
-###2025.05.10.9
-###2025.05.10.8
-- fix: attempt to fix monthly data handling and esphome api calls
-
-###2025.05.10.7
-- fix: attempt to fix monthly data handling and esphome api calls
-
-###2025.05.10.6
-###2025.05.10.5
-- fix: attempt to fix monthly data handling and esphome api calls
-
-###2025.05.10.4
-- added a reset monthly data button
-
-###2025.05.10.3
-- fix: attempt to fix monthly data handling and esphome api calls
-
-###2025.05.10.2
-###2025.05.10.1
-###2025.05.10
-- feat: improved monthly data tracking with daily updates at midnight
-- feat: integrated with Unraid event system for better resource usage
-- feat: improved monthly data tracking with hourly collection and daily resets
-- feat: added background data collector for more accurate energy usage tracking
-
-###2025.05.09.1
-- fix: fixed graph glitches. 
-
-###2025.05.09
-- improvement: second attempt to make the graph smoother and animated
-
-###2025.05.08.3
-- improvement: attempt to make the graph smoother and animated
-
-###2025.05.08.2
-- improvement: added unraid color scheme to graph
-
-###2025.05.08.1
-- fix: attempt to fix monthly data handling and esphome api calls
-- chore: expanded mkpkg to handle multiple versions
-
-###2025.05.08j
-###2025.05.08i
-- fix: attempt to fix monthly data handling and esphome api calls
-- chore: expanded mkpkg to handle multiple versions
-
-###2025.05.08i
-- fix: resolved JSON parsing errors in monthly data updates
-- fix: improved error handling in both PHP and JavaScript
-- fix: prevented endpoint confusion between status.php and monthly_data.php
-
-###2025.05.08h
-- fix: attempt to fix monthly data handling and esphome api calls
-
-###2025.05.08g
-###2025.05.08f
-###2025.05.08f
-- Added automatic background updates to track energy usage even when settings page is not open
-- Improved monthly data handling with better error recovery
-- Added detailed logging for easier troubleshooting
-
-###2025.05.08e
-- Fixed JSON parsing errors in monthly data handling
-- Added extensive error logging
-
-###2025.05.08d
-###2025.05.08c
-###2025.05.08c
-- Fixed plugin settings display issues
-- Ensured consistent configuration loading using parse_plugin_cfg()
-- Removed CSRF token validation that was causing errors
-
-###2025.05.08b
-- Fixed CSRF token validation in monthly_data.php
-- Added proper security for API calls
-- Resolved errors in Unraid logs
-
-###2025.05.08a
-###2025.05.08
-###2025.05.08
-- Improved uninstallation process to clean up all plugin files
-- Fixed persistence issues with monthly data
-
-###2025.05.07f
-- Added power usage graph
-
-###2025.05.07e
-- Improved smooth transitions for value updates
-- Added cache for status data to reduce server load
-- fix: reduced server load to avoid memory issues on ESPHome device
-
-###2025.05.07d
-- Added smooth transitions for value updates
-
-###2025.05.07c
-- Added monthly cost tracking with server-side storage
-- Added daily and monthly cost calculations
-- Improved UI refresh rate handling
-- Simplified interface by removing redundant status checks
-
-
-###2025.05.07b
-- Fixed connectivity issues with ESPHome device
-- Improved error handling
-
-###2025.05.07a
-- Initial release.
 </CHANGES>
 
 <!-- Plugin package -->
@@ -186,12 +51,6 @@
     echo " &name; has been installed."
     echo " Version: &version;"
     echo "-----------------------------------------------------------"
-    
-    # Make event scripts executable
-    if [ -d &emhttp;/event ]; then
-      echo "Setting up event handlers..."
-      chmod +x &emhttp;/event/*
-    fi
     
     echo ""
   </INLINE>
