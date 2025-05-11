@@ -15,7 +15,7 @@
 <CHANGES>
 ##&name;
 ###2025.05.11.7
-- Refactor: Removed UI refresh setting, hardcoded refresh intervals (2s for settings page, 5s for dashboard widget, 1s for graph).
+- Refactor: Initial release with minimum viable features. 
 
 </CHANGES>
 
