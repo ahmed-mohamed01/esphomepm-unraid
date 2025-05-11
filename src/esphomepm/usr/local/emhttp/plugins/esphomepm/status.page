@@ -34,56 +34,6 @@ Icon="esphomepm.png"
                 <td><span class="esphomepm-costs_today"></span> <span class="esphomepm-costs_unit"></span></td>
                 <td></td>
             </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Yesterday:</td>
-                <td><span class="esphomepm-energy-yesterday"></span> kWh</td>
-                <td><span class="esphomepm-costs_yesterday"></span> <span class="esphomepm-costs_unit"></span></td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Total:</td>
-                <td><span class="esphomepm-energy-total"></span> kWh</td>
-                <td><span class="esphomepm-costs_total"></span> <span class="esphomepm-costs_unit"></span></td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Power</td>
-                <td colspan="2"><span class="esphomepm-energy-power"></span> W</td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Voltage</td>
-                <td colspan="2"><span class="esphomepm-energy-voltage"></span> V</td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Current</td>
-                <td colspan="2"><span class="esphomepm-energy-current"></span> A</td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Apparent power</td>
-                <td colspan="2"><span class="esphomepm-energy-apparentpower"></span> VA</td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Reactive power</td>
-                <td colspan="2"><span class="esphomepm-energy-reactivepower"></span> VAr</td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Efficiency</td>
-                <td colspan="2"><span class="esphomepm-energy-efficiency"></span> %</td>
-                <td></td>
-            </tr>
         </tr>
     </tbody>
 </table>
@@ -91,19 +41,26 @@ Icon="esphomepm.png"
 const esphomepm_status = () => {
     $.getJSON("/plugins/esphomepm/status.php", (data) => {
         if (data) {
-            $(".esphomepm-energy-power").html(data.Power);
-            $(".esphomepm-energy-today").html(data.Today);
-            $(".esphomepm-energy-yesterday").html(data.Yesterday);
-            $(".esphomepm-energy-total").html(data.Total);
-            $(".esphomepm-energy-voltage").html(data.Voltage);
-            $(".esphomepm-energy-current").html(data.Current);
-            $(".esphomepm-energy-apparentpower").html(data.ApparentPower);
-            $(".esphomepm-energy-reactivepower").html(data.ReactivePower);
-            $(".esphomepm-energy-efficiency").html((Number.parseFloat(data.Factor) * 100).toFixed());
-            $(".esphomepm-costs_today").html((Number.parseFloat(data.Costs_Price) * Number.parseFloat(data.Today)).toFixed(2));
-            $(".esphomepm-costs_yesterday").html((Number.parseFloat(data.Costs_Price) * Number.parseFloat(data.Yesterday)).toFixed(2));
-            $(".esphomepm-costs_total").html((Number.parseFloat(data.Costs_Price) * Number.parseFloat(data.Total)).toFixed(2));
-            $(".esphomepm-costs_unit").html(data.Costs_Unit);
+            if (data.power !== undefined) { 
+                $(".esphomepm-energy-power").html(parseFloat(data.power).toFixed(2)); 
+            } else {
+                $(".esphomepm-energy-power").html('N/A');
+            }
+            if (data.today_energy !== undefined) {
+                $(".esphomepm-energy-today").html(parseFloat(data.today_energy).toFixed(3));
+            } else {
+                $(".esphomepm-energy-today").html('N/A');
+            }
+            if (data.costs_price !== undefined && data.today_energy !== undefined) {
+                $(".esphomepm-costs_today").html((Number.parseFloat(data.costs_price) * Number.parseFloat(data.today_energy)).toFixed(2));
+            } else {
+                $(".esphomepm-costs_today").html('N/A');
+            }
+            if (data.costs_unit !== undefined) {
+                $(".esphomepm-costs_unit").html(data.costs_unit);
+            } else {
+                $(".esphomepm-costs_unit").html('');
+            }
         }
     });
 };
@@ -112,10 +69,8 @@ $(document).ready(function() {
     // Initial status update
     esphomepm_status();
     
-    // Set up refresh interval if configured
-    if (<?=$esphomepm_cfg['UIREFRESH'];?>) {
-        setInterval(esphomepm_status, <?=$esphomepm_cfg['UIREFRESH'];?>);
-    }
+    // Set up refresh interval
+    setInterval(esphomepm_status, 5000); // Hardcoded to 5 seconds
     
     // Initialize toggle view state
     toggleView('esphomepm_view', true);

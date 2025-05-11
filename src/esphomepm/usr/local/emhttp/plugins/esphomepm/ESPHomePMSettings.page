@@ -6,7 +6,6 @@ Title="ESPHome Power Monitor"
 $esphomepm_cfg = parse_plugin_cfg("esphomepm",true);
 $esphomepm_device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
 $esphomepm_device_name = isset($esphomepm_cfg['DEVICE_NAME']) ? $esphomepm_cfg['DEVICE_NAME'] : "Unraid Server PM";
-$esphomepm_uirefresh = isset($esphomepm_cfg['UIREFRESH']) ? $esphomepm_cfg['UIREFRESH'] : "1000";
 $esphomepm_costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.27";
 $esphomepm_costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
 ?>
@@ -20,9 +19,6 @@ Device Name:
 Device IP:
 : <input id="DEVICE_IP" type="text" class="stopped" name="DEVICE_IP" maxlength="15" value="<?=$esphomepm_device_ip;?>" title="" placeholder="192.168.1.x" >  
 
-
-UI Refresh rate (Milliseconds):
-: <input type="text" id="UIREFRESH" name="UIREFRESH" class="narrow" maxlength="50" value="<?=$esphomepm_uirefresh;?>" placeholder="1000">
 
 Price per kWh for cost calculation:
 : <input id="COSTS_PRICE" type="text" class="stopped" name="COSTS_PRICE" maxlength="10" value="<?=$esphomepm_costs_price;?>" title="" placeholder="0.00" >  
@@ -99,7 +95,7 @@ function updateValue(elementId, value, unit = '', flash = true) {
 function resetDATA(form) {
     form.DEVICE_IP.value = "";
     form.DEVICE_NAME.value = "Unraid Server PM"; // Default name
-    form.UIREFRESH.value = "1000";
+    // form.UIREFRESH.value = "1000";
     form.COSTS_PRICE.value = "0.27";
     form.COSTS_UNIT.value = "GBP";
 }
@@ -140,10 +136,10 @@ function setupRefreshIntervals() {
     if (refreshInterval) clearInterval(refreshInterval);
     if (graphRefreshInterval) clearInterval(graphRefreshInterval);
 
-    const uiRefreshRate = parseInt(document.getElementById('UIREFRESH').value, 10) || 1000;
+    // const uiRefreshRate = parseInt(document.getElementById('UIREFRESH').value, 10) || 1000;
     
     updateDeviceStatus(); 
-    refreshInterval = setInterval(updateDeviceStatus, Math.max(uiRefreshRate, 1000));
+    refreshInterval = setInterval(updateDeviceStatus, 2000); // Hardcoded to 2 seconds
 
     fetchGraphDataPoint(); 
     graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Graph updates every 1 second

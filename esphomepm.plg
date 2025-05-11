@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.11.5">
+<!ENTITY version   "2025.05.11.6">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,7 +14,13 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.05.11.6
+###2025.05.11.6
+- Refactor: Removed UI refresh setting, hardcoded refresh intervals (2s for settings page, 5s for dashboard widget, 1s for graph).
+- Refactor: Removed 1-second caching mechanism in status.php; always fetches fresh data.
+- Refactor: Simplified dashboard widget to display only current power, daily energy, and daily cost.
 ###2025.05.11.5
+- Updated graph line color to orange to better match Unraid branding.
 ###2025.05.11.4
 - Updated graph line color to orange to better match Unraid branding.
 ###2025.05.11.3
