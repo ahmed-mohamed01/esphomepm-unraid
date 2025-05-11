@@ -223,8 +223,8 @@ function initializePowerGraph() {
             datasets: [{
                 label: 'Current Power (W)',
                 data: [],  
-                borderColor: '#68B36F', 
-                backgroundColor: 'rgba(104, 179, 111, 0.2)', 
+                borderColor: '#F57C00', 
+                backgroundColor: 'rgba(245, 124, 0, 0.2)', 
                 borderWidth: 1,
                 tension: 0.4, 
                 pointRadius: 0, 
