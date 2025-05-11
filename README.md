@@ -13,9 +13,7 @@ ESPHome Power Monitor allows you to track your UnRaid server's power consumption
    - `power` - Current power consumption in watts
    - `voltage` - Current voltage
    - `current` - Current amperage
-   - `total_energy` - Total energy consumption in kWh
-   - `today_energy` - Today's energy consumption in kWh
-   - `yesterday_energy` - Yesterday's energy consumption in kWh
+   - `total_daily_energy` - Today's energy consumption in kWh
 
 ## ESPHome Configuration Example
 
