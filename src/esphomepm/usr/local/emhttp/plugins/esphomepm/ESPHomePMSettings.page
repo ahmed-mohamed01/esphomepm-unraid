@@ -20,65 +20,44 @@ $showMonitorTab = !empty($esphomepm_device_ip);
     .value-updated {
         filter: brightness(1.5); /* Simple brightness increase that works with any theme */
     }
-    .esphomepm-tabs {
-        margin-bottom: 20px;
-    }
-    .esphomepm-tabs a {
-        display: inline-block;
-        padding: 10px 15px;
-        margin-right: 5px;
-        text-decoration: none;
-        border: 1px solid #ccc;
-        border-bottom: none;
-        border-radius: 4px 4px 0 0;
-        background-color: #f0f0f0;
-    }
-    .esphomepm-tabs a.active {
-        background-color: #fff;
-        border-bottom: 1px solid #fff;
-        margin-bottom: -1px;
-        font-weight: bold;
-    }
-    .esphomepm-tab-content {
-        display: none;
-        padding: 20px;
-        border: 1px solid #ccc;
-        border-radius: 0 4px 4px 4px;
-    }
-    .esphomepm-tab-content.active {
-        display: block;
-    }
     .monthly-costs-table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
     }
     .monthly-costs-table th, .monthly-costs-table td {
-        border: 1px solid #ddd;
         padding: 8px;
-        text-align: left;
+    /* Ensure the tab content has proper spacing */
+    div.tab-content {
+        padding: 10px;
     }
-    .monthly-costs-table th {
-        background-color: #f2f2f2;
+    /* Use Unraid's native styling for tables */
+    dl {
+        margin-bottom: 20px;
     }
-    .monthly-costs-table tr:nth-child(even) {
-        background-color: #f9f9f9;
+    dt {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    dd {
+        margin-bottom: 10px;
+        margin-left: 15px;
     }
 </style>
 
-<!-- Tab Navigation -->
-<div class="esphomepm-tabs">
+<!-- Native Unraid Tab Navigation -->
+<div>
     <?php if ($showMonitorTab): ?>
-    <a href="#" class="tab-link active" data-tab="monitor">Monitor</a>
-    <a href="#" class="tab-link" data-tab="settings">Settings</a>
+    <input type="radio" id="tab1" name="tabs" class="tabs" checked><label for="tab1">Monitor</label>
+    <input type="radio" id="tab2" name="tabs" class="tabs"><label for="tab2">Settings</label>
     <?php else: ?>
-    <a href="#" class="tab-link" data-tab="monitor">Monitor</a>
-    <a href="#" class="tab-link active" data-tab="settings">Settings</a>
+    <input type="radio" id="tab1" name="tabs" class="tabs"><label for="tab1">Monitor</label>
+    <input type="radio" id="tab2" name="tabs" class="tabs" checked><label for="tab2">Settings</label>
     <?php endif; ?>
 </div>
 
 <!-- Monitor Tab Content -->
-<div id="monitor" class="esphomepm-tab-content <?php echo $showMonitorTab ? 'active' : ''; ?>">
+<div class="tab-content" id="tab1-content">
     <div id="deviceStatus">
         <h3>Power Monitoring</h3>
         <div id="sensorValues">
@@ -101,29 +80,38 @@ $showMonitorTab = !empty($esphomepm_device_ip);
             
             <h4 style="margin-top: 20px;">Monthly Costs</h4>
             <div id="monthlyCostsContainer">
-                <p>Monitoring Since: <span id="monitoringSince">--</span></p>
-                <p>Overall Total Energy: <span id="overallTotalEnergy">--</span> kWh</p>
-                <p>Overall Total Cost: <span id="overallTotalCost">--</span> <span id="costUnitDisplayTotal">--</span></p>
+                <dl>
+                    <dt>Monitoring Since:</dt>
+                    <dd><span id="monitoringSince">--</span></dd>
+                    
+                    <dt>Overall Total Energy:</dt>
+                    <dd><span id="overallTotalEnergy">--</span> kWh</dd>
+                    
+                    <dt>Overall Total Cost:</dt>
+                    <dd><span id="overallTotalCost">--</span> <span id="costUnitDisplayTotal">--</span></dd>
+                </dl>
                 
-                <table class="monthly-costs-table">
-                    <thead>
-                        <tr>
-                            <th>Month</th>
-                            <th>Energy (kWh)</th>
-                            <th>Cost (<span id="tableUnitDisplay">--</span>)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="monthlyCostsTableBody">
-                        <!-- Will be populated by JavaScript -->
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Energy (kWh)</th>
+                                <th>Cost (<span id="tableUnitDisplay">--</span>)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthlyCostsTableBody">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
 
 <!-- Settings Tab Content -->
-<div id="settings" class="esphomepm-tab-content <?php echo !$showMonitorTab ? 'active' : ''; ?>">
+<div class="tab-content" id="tab2-content">
     <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
     <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
 
@@ -187,23 +175,7 @@ function done() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Tab switching functionality
-    document.querySelectorAll('.tab-link').forEach(tab => {
-        tab.addEventListener('click', function(e) {
-            e.preventDefault();
-            const tabId = this.getAttribute('data-tab');
-            
-            // Update active tab
-            document.querySelectorAll('.tab-link').forEach(t => t.classList.remove('active'));
-            this.classList.add('active');
-            
-            // Show active content
-            document.querySelectorAll('.esphomepm-tab-content').forEach(content => {
-                content.classList.remove('active');
-            });
-            document.getElementById(tabId).classList.add('active');
-        });
-    });
+    // Native Unraid tabs are handled automatically by CSS
 
     // Settings form handling
     const applyButton = document.getElementById('btnApply');
@@ -229,18 +201,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Switch to monitor tab if device IP is set
                 const deviceIP = document.getElementById('DEVICE_IP').value;
                 if (deviceIP) {
-                    document.querySelectorAll('.tab-link').forEach(tab => {
-                        tab.classList.remove('active');
-                        if (tab.getAttribute('data-tab') === 'monitor') {
-                            tab.classList.add('active');
-                        }
-                    });
-                    document.querySelectorAll('.esphomepm-tab-content').forEach(content => {
-                        content.classList.remove('active');
-                        if (content.id === 'monitor') {
-                            content.classList.add('active');
-                        }
-                    });
+                    document.getElementById('tab1').checked = true;
                 }
             }, 1500); 
         });
@@ -265,22 +226,10 @@ function setupRefreshIntervals() {
 
 async function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
-    const monitorTab = document.getElementById('monitor');
 
     if (!deviceIP) {
         // If no device IP, switch to settings tab
-        document.querySelectorAll('.tab-link').forEach(tab => {
-            tab.classList.remove('active');
-            if (tab.getAttribute('data-tab') === 'settings') {
-                tab.classList.add('active');
-            }
-        });
-        document.querySelectorAll('.esphomepm-tab-content').forEach(content => {
-            content.classList.remove('active');
-            if (content.id === 'settings') {
-                content.classList.add('active');
-            }
-        });
+        document.getElementById('tab2').checked = true;
         return;
     }
 
@@ -323,11 +272,12 @@ async function updateDeviceStatus() {
             tableBody.innerHTML = ''; // Clear existing rows
             
             // Add current month row
+            const currentMonth = data.current_month?.month_year || new Date().toISOString().slice(0, 7);
             const currentMonthRow = document.createElement('tr');
             currentMonthRow.innerHTML = `
-                <td>${data.current_month?.month_year || new Date().toISOString().slice(0, 7)}</td>
-                <td>${parseFloat(data.current_month_energy_total).toFixed(3)}</td>
-                <td>${parseFloat(data.current_month_cost_total).toFixed(2)}</td>
+                <td>${currentMonth}</td>
+                <td>${parseFloat(data.current_month_energy_total || 0).toFixed(3)}</td>
+                <td>${parseFloat(data.current_month_cost_total || 0).toFixed(2)}</td>
             `;
             tableBody.appendChild(currentMonthRow);
             
@@ -338,15 +288,21 @@ async function updateDeviceStatus() {
                 
                 sortedMonths.forEach(month => {
                     const monthData = data.historical_months[month];
+                    if (!monthData) return;
+                    
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${month}</td>
-                        <td>${parseFloat(monthData.energy_kwh).toFixed(3)}</td>
-                        <td>${parseFloat(monthData.cost).toFixed(2)}</td>
+                        <td>${parseFloat(monthData.energy_kwh || 0).toFixed(3)}</td>
+                        <td>${parseFloat(monthData.cost || 0).toFixed(2)}</td>
                     `;
                     tableBody.appendChild(row);
                 });
             }
+            
+            // Log data for debugging
+            console.log('Historical data:', data.historical_months);
+            console.log('Current month data:', data.current_month_energy_total, data.current_month_cost_total);
         }
 
     } catch (error) {
