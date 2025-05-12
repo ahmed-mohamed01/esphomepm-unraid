@@ -256,11 +256,21 @@ async function updateDeviceStatus() {
         updateValue('monthlyCost', parseFloat(data.current_month_cost_total).toFixed(2));
         
         // Update historical data
-        if (data.historical_data) {
-            const monthlyData = data.historical_data.months || {};
-            const monitoringSince = data.historical_data.monitoring_since || '--';
-            const overallTotalEnergy = data.historical_data.overall_total_energy || '--';
-            const overallTotalCost = data.historical_data.overall_total_cost || '--';
+        // Log the entire response data for debugging
+        console.log('Full response data:', data);
+        
+        // Create a structured historical data object from the response
+        const historicalData = {
+            months: data.historical_months || {},
+            monitoring_since: data.monitoring_start_date || '--',
+            overall_total_energy: data.overall_total_energy || '--',
+            overall_total_cost: data.overall_total_cost || '--'
+        };
+        
+        const monthlyData = historicalData.months;
+        const monitoringSince = historicalData.monitoring_since;
+        const overallTotalEnergy = historicalData.overall_total_energy;
+        const overallTotalCost = historicalData.overall_total_cost;
             
             document.getElementById('monitoringSince').textContent = monitoringSince;
             document.getElementById('overallTotalEnergy').textContent = `${overallTotalEnergy} kWh`;
@@ -271,6 +281,21 @@ async function updateDeviceStatus() {
             
             // Sort months in descending order (most recent first)
             const sortedMonths = Object.keys(monthlyData).sort().reverse();
+            console.log('Sorted months:', sortedMonths);
+            
+            // Add current month to the table if it's not already in the historical data
+            if (data.current_month_energy_total > 0 || data.current_month_cost_total > 0) {
+                const currentMonthYear = new Date().toISOString().slice(0, 7); // YYYY-MM format
+                if (!monthlyData[currentMonthYear]) {
+                    monthlyData[currentMonthYear] = {
+                        energy: data.current_month_energy_total,
+                        cost: data.current_month_cost_total
+                    };
+                    if (!sortedMonths.includes(currentMonthYear)) {
+                        sortedMonths.unshift(currentMonthYear);
+                    }
+                }
+            }
             
             if (sortedMonths.length === 0) {
                 const row = document.createElement('tr');
@@ -288,9 +313,22 @@ async function updateDeviceStatus() {
                     const energyCell = document.createElement('td');
                     const costCell = document.createElement('td');
                     
-                    monthCell.textContent = month;
-                    energyCell.textContent = `${monthData.energy || 0} kWh`;
-                    costCell.textContent = `${monthData.cost || 0} ${data.costs_unit}`;
+                    // Format month for display (YYYY-MM to Month YYYY)
+                    try {
+                        const [year, monthNum] = month.split('-');
+                        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                        const monthName = monthNames[parseInt(monthNum) - 1];
+                        monthCell.textContent = `${monthName} ${year}`;
+                    } catch (e) {
+                        monthCell.textContent = month;
+                    }
+                    
+                    // For historical months, the data structure is different than for current month
+                    const energyValue = monthData.energy_kwh !== undefined ? monthData.energy_kwh : (monthData.energy || 0);
+                    energyCell.textContent = `${parseFloat(energyValue).toFixed(3)} kWh`;
+                    
+                    const costValue = monthData.cost || 0;
+                    costCell.textContent = `${parseFloat(costValue).toFixed(2)} ${data.costs_unit}`;
                     
                     row.appendChild(monthCell);
                     row.appendChild(energyCell);
