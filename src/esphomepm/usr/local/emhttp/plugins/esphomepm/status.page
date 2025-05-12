@@ -34,6 +34,13 @@ Icon="esphomepm.png"
                 <td><span class="esphomepm-costs_today"></span> <span class="esphomepm-costs_unit"></span></td>
                 <td></td>
             </tr>
+            <tr class="esphomepm_view">
+                <td></td>
+                <td>Month:</td>
+                <td><span class="esphomepm-energy-month"></span> kWh</td>
+                <td><span class="esphomepm-costs_month"></span> <span class="esphomepm-costs_unit"></span></td>
+                <td></td>
+            </tr>
         </tr>
     </tbody>
 </table>
@@ -41,21 +48,47 @@ Icon="esphomepm.png"
 const esphomepm_status = () => {
     $.getJSON("/plugins/esphomepm/status.php", (data) => {
         if (data) {
+            // Current power
             if (data.power !== undefined) { 
                 $(".esphomepm-energy-power").html(parseFloat(data.power).toFixed(2)); 
             } else {
                 $(".esphomepm-energy-power").html('N/A');
             }
+            
+            // Today's energy
             if (data.today_energy !== undefined) {
                 $(".esphomepm-energy-today").html(parseFloat(data.today_energy).toFixed(3));
             } else {
                 $(".esphomepm-energy-today").html('N/A');
             }
-            if (data.costs_price !== undefined && data.today_energy !== undefined) {
+            
+            // Today's cost
+            if (data.daily_cost !== undefined) {
+                $(".esphomepm-costs_today").html(parseFloat(data.daily_cost).toFixed(2));
+            } else if (data.costs_price !== undefined && data.today_energy !== undefined) {
+                // Fallback calculation if daily_cost not provided
                 $(".esphomepm-costs_today").html((Number.parseFloat(data.costs_price) * Number.parseFloat(data.today_energy)).toFixed(2));
             } else {
                 $(".esphomepm-costs_today").html('N/A');
             }
+            
+            // Monthly energy and cost
+            if (data.current_month_energy_total !== undefined) {
+                $(".esphomepm-energy-month").html(parseFloat(data.current_month_energy_total).toFixed(3));
+            } else {
+                $(".esphomepm-energy-month").html('N/A');
+            }
+            
+            if (data.current_month_cost_total !== undefined) {
+                $(".esphomepm-costs_month").html(parseFloat(data.current_month_cost_total).toFixed(2));
+            } else if (data.monthly_cost_est !== undefined) {
+                // Fallback to estimated monthly cost
+                $(".esphomepm-costs_month").html(parseFloat(data.monthly_cost_est).toFixed(2));
+            } else {
+                $(".esphomepm-costs_month").html('N/A');
+            }
+            
+            // Cost unit
             if (data.costs_unit !== undefined) {
                 $(".esphomepm-costs_unit").html(data.costs_unit);
             } else {
@@ -70,7 +103,7 @@ $(document).ready(function() {
     esphomepm_status();
     
     // Set up refresh interval
-    setInterval(esphomepm_status, 5000); // Hardcoded to 5 seconds
+    setInterval(esphomepm_status, 10000); // Hardcoded to 10 seconds
     
     // Initialize toggle view state
     toggleView('esphomepm_view', true);

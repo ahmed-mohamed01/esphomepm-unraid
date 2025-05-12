@@ -10,12 +10,15 @@ ini_set('error_log', '/tmp/esphomepm_status_error.log'); // Changed log file nam
 // Set content type to JSON
 header('Content-Type: application/json');
 
+// Configuration and constants
+define('ESPHOMPM_PLUGIN_NAME', 'esphomepm');
+define('ESPHOMPM_CONFIG_FILE', '/boot/config/plugins/' . ESPHOMPM_PLUGIN_NAME . '/' . ESPHOMPM_PLUGIN_NAME . '.cfg');
+define('ESPHOMPM_DATA_FILE', '/boot/config/plugins/' . ESPHOMPM_PLUGIN_NAME . '/esphomepm_data.json');
+
 // Load configuration
-$plugin_name = 'esphomepm';
-$cfg_file = "/boot/config/plugins/$plugin_name/$plugin_name.cfg";
 $esphomepm_cfg = [];
-if (file_exists($cfg_file)) {
-    $raw_cfg = parse_ini_file($cfg_file);
+if (file_exists(ESPHOMPM_CONFIG_FILE)) {
+    $raw_cfg = parse_ini_file(ESPHOMPM_CONFIG_FILE);
     if ($raw_cfg !== false) {
         $esphomepm_cfg = $raw_cfg;
     }
@@ -25,6 +28,8 @@ if (file_exists($cfg_file)) {
 $device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
 $costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.0"; // Default as string
 $costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "";    // Default as empty string
+$power_sensor_path = !empty($esphomepm_cfg['POWER_SENSOR_PATH']) ? $esphomepm_cfg['POWER_SENSOR_PATH'] : 'power';
+$daily_energy_sensor_path = !empty($esphomepm_cfg['DAILY_ENERGY_SENSOR_PATH']) ? $esphomepm_cfg['DAILY_ENERGY_SENSOR_PATH'] : 'daily_energy';
 
 // Function to get sensor value with retry and error handling
 function getSensorValue($sensor, $device_ip, $timeout = 2) { // Default timeout for sensor reads
@@ -101,12 +106,31 @@ if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
     exit;
 }
 
+// Function to load historical data from JSON file
+function load_historical_data() {
+    if (!file_exists(ESPHOMPM_DATA_FILE)) {
+        return null;
+    }
+    $json_content = file_get_contents(ESPHOMPM_DATA_FILE);
+    if ($json_content === false) {
+        error_log("ESPHomePM: Failed to read data file: " . ESPHOMPM_DATA_FILE);
+        return null;
+    }
+    $data = json_decode($json_content, true);
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        error_log("ESPHomePM: JSON decode error for " . ESPHOMPM_DATA_FILE . ": " . json_last_error_msg());
+        return null;
+    }
+    return $data;
+}
+
 // Standard data request logic
 if (empty($device_ip)) {
     echo json_encode([
         'power' => 0, 'today_energy' => 0,
         'daily_cost' => 0, 'monthly_cost_est' => 0,
         'costs_price' => $costs_price, 'costs_unit' => $costs_unit,
+        'historical_data_available' => false,
         'error' => 'ESPHome Device IP missing'
     ]);
     exit;
@@ -115,8 +139,8 @@ if (empty($device_ip)) {
 // --- Fetch data from ESPHome device for standard request ---
 $error_messages = [];
 
-$power_result = getSensorValue("power", $device_ip);
-$daily_energy_result = getSensorValue("daily_energy", $device_ip);
+$power_result = getSensorValue($power_sensor_path, $device_ip);
+$daily_energy_result = getSensorValue($daily_energy_sensor_path, $device_ip);
 
 $power = 0;
 if (isset($power_result['value'])) {
@@ -137,16 +161,78 @@ if (isset($daily_energy_result['error']) && $daily_energy_result['error'] !== nu
 // Calculations
 $costs_price_numeric = is_numeric($costs_price) ? (float)$costs_price : 0.0; // Ensure costs_price is numeric
 $daily_cost = $daily_energy * $costs_price_numeric;
-$monthly_cost_est = $daily_cost * 30;
+
+// --- Load historical data ---
+$historical_data = load_historical_data();
+$historical_data_available = ($historical_data !== null);
+
+// Default values for historical data
+$current_month_energy_completed_days = 0.0;
+$current_month_cost_completed_days = 0.0;
+$historical_months = [];
+$overall_total_energy = 0.0;
+$overall_total_cost = 0.0;
+$monitoring_start_date = date('Y-m-d'); // Default to today if no historical data
+
+// Extract historical data if available
+if ($historical_data_available) {
+    // Current month completed days (excluding today)
+    if (isset($historical_data['current_month']['total_energy_kwh_completed_days'])) {
+        $current_month_energy_completed_days = (float)$historical_data['current_month']['total_energy_kwh_completed_days'];
+    }
+    if (isset($historical_data['current_month']['total_cost_completed_days'])) {
+        $current_month_cost_completed_days = (float)$historical_data['current_month']['total_cost_completed_days'];
+    }
+    
+    // Historical months
+    if (isset($historical_data['historical_months']) && is_array($historical_data['historical_months'])) {
+        $historical_months = $historical_data['historical_months'];
+    }
+    
+    // Overall totals
+    if (isset($historical_data['overall_totals']['total_energy_kwh_all_time'])) {
+        $overall_total_energy = (float)$historical_data['overall_totals']['total_energy_kwh_all_time'];
+    }
+    if (isset($historical_data['overall_totals']['total_cost_all_time'])) {
+        $overall_total_cost = (float)$historical_data['overall_totals']['total_cost_all_time'];
+    }
+    if (isset($historical_data['overall_totals']['monitoring_start_date'])) {
+        $monitoring_start_date = $historical_data['overall_totals']['monitoring_start_date'];
+    }
+}
+
+// Calculate current month totals including today's values
+$current_month_energy_total = $current_month_energy_completed_days + $daily_energy;
+$current_month_cost_total = $current_month_cost_completed_days + $daily_cost;
 
 // Prepare response
 $response_data = [
+    // Live data
     'power' => $power,
-    'today_energy' => $daily_energy, // Key 'today_energy' for JS, value from 'daily_energy' sensor
+    'today_energy' => $daily_energy,
     'daily_cost' => round($daily_cost, 2),
-    'monthly_cost_est' => round($monthly_cost_est, 2),
-    'costs_price' => $costs_price, // Original config value for display
+    
+    // Configuration
+    'costs_price' => $costs_price,
     'costs_unit' => $costs_unit,
+    
+    // Current month data
+    'current_month_energy_completed_days' => round($current_month_energy_completed_days, 3),
+    'current_month_cost_completed_days' => round($current_month_cost_completed_days, 2),
+    'current_month_energy_total' => round($current_month_energy_total, 3), // Including today
+    'current_month_cost_total' => round($current_month_cost_total, 2),    // Including today
+    
+    // Historical and overall data
+    'historical_data_available' => $historical_data_available,
+    'historical_months' => $historical_months,
+    'overall_total_energy' => round($overall_total_energy, 3),
+    'overall_total_cost' => round($overall_total_cost, 2),
+    'monitoring_start_date' => $monitoring_start_date,
+    
+    // For backward compatibility
+    'monthly_cost_est' => round($current_month_cost_total, 2), // Now using actual data instead of daily*30
+    
+    // Error information
     'error' => empty($error_messages) ? null : implode('; ', $error_messages)
 ];
 
