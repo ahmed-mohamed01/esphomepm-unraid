@@ -163,7 +163,6 @@ function updateValue(elementId, value, unit = '', flash = true) {
 function resetDATA(form) {
     form.DEVICE_IP.value = "";
     form.DEVICE_NAME.value = "Unraid Server PM"; // Default name
-    // form.UIREFRESH.value = "1000";
     form.COSTS_PRICE.value = "0.27";
     form.COSTS_UNIT.value = "GBP";
 }
@@ -242,8 +241,6 @@ document.addEventListener('DOMContentLoaded', function() {
 function setupRefreshIntervals() {
     if (refreshInterval) clearInterval(refreshInterval);
     if (graphRefreshInterval) clearInterval(graphRefreshInterval);
-
-    // const uiRefreshRate = parseInt(document.getElementById('UIREFRESH').value, 10) || 1000;
     
     updateDeviceStatus(); 
     refreshInterval = setInterval(updateDeviceStatus, 2000); // Hardcoded to 2 seconds
