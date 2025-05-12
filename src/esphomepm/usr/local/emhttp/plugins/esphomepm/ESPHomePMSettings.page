@@ -27,9 +27,6 @@ $showMonitorTab = !empty($esphomepm_device_ip);
     }
     .monthly-costs-table th, .monthly-costs-table td {
         padding: 8px;
-    /* Ensure the tab content has proper spacing */
-    div.tab-content {
-        padding: 10px;
     }
     /* Use Unraid's native styling for tables */
     dl {
@@ -45,19 +42,16 @@ $showMonitorTab = !empty($esphomepm_device_ip);
     }
 </style>
 
-<!-- Native Unraid Tab Navigation -->
-<div>
-    <?php if ($showMonitorTab): ?>
-    <input type="radio" id="tab1" name="tabs" class="tabs" checked><label for="tab1">Monitor</label>
-    <input type="radio" id="tab2" name="tabs" class="tabs"><label for="tab2">Settings</label>
-    <?php else: ?>
-    <input type="radio" id="tab1" name="tabs" class="tabs"><label for="tab1">Monitor</label>
-    <input type="radio" id="tab2" name="tabs" class="tabs" checked><label for="tab2">Settings</label>
-    <?php endif; ?>
-</div>
+<?php if ($showMonitorTab): ?>
+<input type="radio" id="tab1" name="tabs" class="tabs" checked><label for="tab1">Monitor</label>
+<input type="radio" id="tab2" name="tabs" class="tabs"><label for="tab2">Settings</label>
+<?php else: ?>
+<input type="radio" id="tab1" name="tabs" class="tabs"><label for="tab1">Monitor</label>
+<input type="radio" id="tab2" name="tabs" class="tabs" checked><label for="tab2">Settings</label>
+<?php endif; ?>
 
 <!-- Monitor Tab Content -->
-<div class="tab-content" id="tab1-content">
+<div class="tab" id="tab1">
     <div id="deviceStatus">
         <h3>Power Monitoring</h3>
         <div id="sensorValues">
@@ -111,7 +105,7 @@ $showMonitorTab = !empty($esphomepm_device_ip);
 </div>
 
 <!-- Settings Tab Content -->
-<div class="tab-content" id="tab2-content">
+<div class="tab" id="tab2">
     <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
     <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
 
