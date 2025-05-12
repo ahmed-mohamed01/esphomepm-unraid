@@ -67,7 +67,7 @@ Unit for cost calculation:
 : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
 
 <input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
-: <input id="APPLY" type="button" value="Apply"><input type="button" value="Done" onClick="done()">
+: <input type="button" value="Apply" id="APPLY" onClick="applySettings(this.form)"><input type="button" value="Done" onClick="done()">
 </form>
 
 <!-- Add a feedback area -->
@@ -166,6 +166,25 @@ function resetDATA(form) {
     // form.UIREFRESH.value = "1000";
     form.COSTS_PRICE.value = "0.27";
     form.COSTS_UNIT.value = "GBP";
+}
+
+function applySettings(form) {
+    const feedbackElement = document.getElementById('applyFeedback');
+    feedbackElement.textContent = 'Saving settings...';
+    feedbackElement.style.color = 'orange';
+    
+    form.submit();
+    
+    // Feedback for form submission is tricky with iframe target, this is a generic message
+    setTimeout(() => {
+        feedbackElement.textContent = 'Settings submitted. Page will refresh...';
+        feedbackElement.style.color = 'green';
+        
+        // Reload the page to show monitoring section
+        setTimeout(() => {
+            window.location.reload();
+        }, 500);
+    }, 1000);
 }
 
 function done() {
