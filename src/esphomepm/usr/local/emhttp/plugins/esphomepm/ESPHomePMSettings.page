@@ -27,6 +27,7 @@ $showMonitorTab = !empty($esphomepm_device_ip);
     }
     .monthly-costs-table th, .monthly-costs-table td {
         padding: 8px;
+        text-align: left;
     }
     /* Use Unraid's native styling for tables */
     dl {
@@ -40,19 +41,41 @@ $showMonitorTab = !empty($esphomepm_device_ip);
         margin-bottom: 10px;
         margin-left: 15px;
     }
+    /* Graph styling */
+    #powerGraph {
+        width: 100%;
+        height: 250px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
 </style>
 
-<?php if ($showMonitorTab): ?>
-<input type="radio" id="tab1" name="tabs" class="tabs" checked><label for="tab1">Monitor</label>
-<input type="radio" id="tab2" name="tabs" class="tabs"><label for="tab2">Settings</label>
-<?php else: ?>
-<input type="radio" id="tab1" name="tabs" class="tabs"><label for="tab1">Monitor</label>
-<input type="radio" id="tab2" name="tabs" class="tabs" checked><label for="tab2">Settings</label>
-<?php endif; ?>
+<!-- Settings Form -->
+<form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
+<input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
 
-<!-- Monitor Tab Content -->
-<div class="tab" id="tab1">
-    <div id="deviceStatus">
+Device Name:
+: <input id="DEVICE_NAME" type="text" class="stopped" name="DEVICE_NAME" maxlength="50" value="<?=$esphomepm_device_name;?>" title="" placeholder="ESPHome Device Name" >  
+
+Device IP:
+: <input id="DEVICE_IP" type="text" class="stopped" name="DEVICE_IP" maxlength="15" value="<?=$esphomepm_device_ip;?>" title="" placeholder="192.168.1.x" >  
+
+Price per kWh for cost calculation:
+: <input id="COSTS_PRICE" type="text" class="stopped" name="COSTS_PRICE" maxlength="10" value="<?=$esphomepm_costs_price;?>" title="" placeholder="0.00" >  
+
+Unit for cost calculation:
+: <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
+
+<input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
+: <input id="btnApply" type="button" value="Apply"><input type="button" value="Done" onClick="done()">
+</form>
+
+<!-- Add a feedback area -->
+<div id="applyFeedback" style="margin-top: 10px; margin-bottom: 20px; font-weight: bold;"></div>
+
+<!-- Monitoring Section -->
+<?php if (!empty($esphomepm_device_ip)): ?>
+<div id="deviceStatus">
         <h3>Power Monitoring</h3>
         <div id="sensorValues">
             <h4>Current Readings</h4>
@@ -72,62 +95,43 @@ $showMonitorTab = !empty($esphomepm_device_ip);
                 <canvas id="powerGraph"></canvas>
             </div>
             
-            <h4 style="margin-top: 20px;">Monthly Costs</h4>
-            <div id="monthlyCostsContainer">
+            <div id="monthlyCosts">
+            <h3>Monthly Costs</h3>
+            <div class="summary-info">
                 <dl>
                     <dt>Monitoring Since:</dt>
-                    <dd><span id="monitoringSince">--</span></dd>
-                    
-                    <dt>Overall Total Energy:</dt>
-                    <dd><span id="overallTotalEnergy">--</span> kWh</dd>
-                    
-                    <dt>Overall Total Cost:</dt>
-                    <dd><span id="overallTotalCost">--</span> <span id="costUnitDisplayTotal">--</span></dd>
+                    <dd id="monitoringSince">--</dd>
                 </dl>
-                
-                <div class="table-responsive">
-                    <table class="table table-striped">
-                        <thead>
-                            <tr>
-                                <th>Month</th>
-                                <th>Energy (kWh)</th>
-                                <th>Cost (<span id="tableUnitDisplay">--</span>)</th>
-                            </tr>
-                        </thead>
-                        <tbody id="monthlyCostsTableBody">
-                            <!-- Will be populated by JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
+                <dl>
+                    <dt>Overall Total Energy:</dt>
+                    <dd id="overallTotalEnergy">-- kWh</dd>
+                </dl>
+                <dl>
+                    <dt>Overall Total Cost:</dt>
+                    <dd id="overallTotalCost">-- <?=$esphomepm_costs_unit;?></dd>
+                </dl>
+            </div>
+            <div class="table-responsive">
+                <table class="monthly-costs-table table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Energy (kWh)</th>
+                            <th>Cost (<?=$esphomepm_costs_unit;?>)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyDataTable">
+                        <!-- Monthly data will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Settings Tab Content -->
-<div class="tab" id="tab2">
-    <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
-    <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
-
-    Device Name:
-    : <input id="DEVICE_NAME" type="text" class="stopped" name="DEVICE_NAME" maxlength="50" value="<?=$esphomepm_device_name;?>" title="" placeholder="ESPHome Device Name" >  
-
-    Device IP:
-    : <input id="DEVICE_IP" type="text" class="stopped" name="DEVICE_IP" maxlength="15" value="<?=$esphomepm_device_ip;?>" title="" placeholder="192.168.1.x" >  
-
-    Price per kWh for cost calculation:
-    : <input id="COSTS_PRICE" type="text" class="stopped" name="COSTS_PRICE" maxlength="10" value="<?=$esphomepm_costs_price;?>" title="" placeholder="0.00" >  
-
-    Unit for cost calculation:
-    : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
-
-    <input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
-    : <input id="btnApply" type="button" value="Apply"><input type="button" value="Done" onClick="done()">
-    </form>
-
-    <!-- Add a feedback area -->
-    <div id="applyFeedback" style="margin-top: 10px; font-weight: bold;"></div>
-</div>
+<?php else: ?>
+<div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
+<?php endif; ?>
 
 
 
@@ -192,11 +196,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 setupRefreshIntervals(); // Re-initialize intervals with new settings
                 updateDeviceStatus(); // Fetch new data immediately
                 
-                // Switch to monitor tab if device IP is set
-                const deviceIP = document.getElementById('DEVICE_IP').value;
-                if (deviceIP) {
-                    document.getElementById('tab1').checked = true;
-                }
+                // Reload the page to show monitoring section
+                window.location.reload();
             }, 1500); 
         });
     }
@@ -220,10 +221,9 @@ function setupRefreshIntervals() {
 
 async function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
+    const deviceStatusDiv = document.getElementById('deviceStatus');
 
-    if (!deviceIP) {
-        // If no device IP, switch to settings tab
-        document.getElementById('tab2').checked = true;
+    if (!deviceIP || !deviceStatusDiv) {
         return;
     }
 
@@ -256,43 +256,54 @@ async function updateDeviceStatus() {
         updateValue('monthlyCost', parseFloat(data.current_month_cost_total).toFixed(2));
         
         // Update historical data
-        if (data.historical_data_available) {
-            updateValue('monitoringSince', data.monitoring_start_date);
-            updateValue('overallTotalEnergy', parseFloat(data.overall_total_energy).toFixed(3));
-            updateValue('overallTotalCost', parseFloat(data.overall_total_cost).toFixed(2));
+        if (data.historical_data) {
+            const monthlyData = data.historical_data.months || {};
+            const monitoringSince = data.historical_data.monitoring_since || '--';
+            const overallTotalEnergy = data.historical_data.overall_total_energy || '--';
+            const overallTotalCost = data.historical_data.overall_total_cost || '--';
             
-            // Update monthly costs table
-            const tableBody = document.getElementById('monthlyCostsTableBody');
-            tableBody.innerHTML = ''; // Clear existing rows
+            document.getElementById('monitoringSince').textContent = monitoringSince;
+            document.getElementById('overallTotalEnergy').textContent = `${overallTotalEnergy} kWh`;
+            document.getElementById('overallTotalCost').textContent = `${overallTotalCost} ${data.costs_unit}`;
             
-            // Add current month row
-            const currentMonth = data.current_month?.month_year || new Date().toISOString().slice(0, 7);
-            const currentMonthRow = document.createElement('tr');
-            currentMonthRow.innerHTML = `
-                <td>${currentMonth}</td>
-                <td>${parseFloat(data.current_month_energy_total || 0).toFixed(3)}</td>
-                <td>${parseFloat(data.current_month_cost_total || 0).toFixed(2)}</td>
-            `;
-            tableBody.appendChild(currentMonthRow);
+            const monthlyDataTable = document.getElementById('monthlyDataTable');
+            monthlyDataTable.innerHTML = '';
             
-            // Add historical months
-            if (data.historical_months && Object.keys(data.historical_months).length > 0) {
-                // Sort months in descending order (newest first)
-                const sortedMonths = Object.keys(data.historical_months).sort().reverse();
-                
+            // Sort months in descending order (most recent first)
+            const sortedMonths = Object.keys(monthlyData).sort().reverse();
+            
+            if (sortedMonths.length === 0) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.setAttribute('colspan', '3');
+                cell.textContent = 'No monthly data available yet';
+                cell.style.textAlign = 'center';
+                row.appendChild(cell);
+                monthlyDataTable.appendChild(row);
+            } else {
                 sortedMonths.forEach(month => {
-                    const monthData = data.historical_months[month];
-                    if (!monthData) return;
-                    
+                    const monthData = monthlyData[month] || {};
                     const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${month}</td>
-                        <td>${parseFloat(monthData.energy_kwh || 0).toFixed(3)}</td>
-                        <td>${parseFloat(monthData.cost || 0).toFixed(2)}</td>
-                    `;
-                    tableBody.appendChild(row);
+                    const monthCell = document.createElement('td');
+                    const energyCell = document.createElement('td');
+                    const costCell = document.createElement('td');
+                    
+                    monthCell.textContent = month;
+                    energyCell.textContent = `${monthData.energy || 0} kWh`;
+                    costCell.textContent = `${monthData.cost || 0} ${data.costs_unit}`;
+                    
+                    row.appendChild(monthCell);
+                    row.appendChild(energyCell);
+                    row.appendChild(costCell);
+                    monthlyDataTable.appendChild(row);
                 });
             }
+            
+            // Log the data to help with debugging
+            console.log('Historical data:', data.historical_data);
+        } else {
+            console.log('No historical data available');
+        }    }
             
             // Log data for debugging
             console.log('Historical data:', data.historical_months);
