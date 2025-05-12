@@ -67,7 +67,7 @@ Unit for cost calculation:
 : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
 
 <input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
-: <input id="btnApply" type="button" value="Apply"><input type="button" value="Done" onClick="done()">
+: <input id="APPLY" type="button" value="Apply"><input type="button" value="Done" onClick="done()">
 </form>
 
 <!-- Add a feedback area -->
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Native Unraid tabs are handled automatically by CSS
 
     // Settings form handling
-    const applyButton = document.getElementById('btnApply');
+    const applyButton = document.getElementById('APPLY');
     const settingsForm = document.getElementById('esphomepmSettingsForm');
     const feedbackElement = document.getElementById('applyFeedback');
 
@@ -303,12 +303,11 @@ async function updateDeviceStatus() {
             console.log('Historical data:', data.historical_data);
         } else {
             console.log('No historical data available');
-        }    }
-            
-            // Log data for debugging
-            console.log('Historical data:', data.historical_months);
-            console.log('Current month data:', data.current_month_energy_total, data.current_month_cost_total);
         }
+            
+        // Log data for debugging
+        console.log('Historical data:', data.historical_months);
+        console.log('Current month data:', data.current_month_energy_total, data.current_month_cost_total);
 
     } catch (error) {
         console.error('Failed to fetch device status:', error);
