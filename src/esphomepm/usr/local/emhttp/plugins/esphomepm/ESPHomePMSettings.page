@@ -168,22 +168,55 @@ function resetDATA(form) {
     form.COSTS_UNIT.value = "GBP";
 }
 
-function applySettings(form) {
+async function applySettings(form) {
     const feedbackElement = document.getElementById('applyFeedback');
+    const deviceIP = form.DEVICE_IP.value.trim();
+    
+    // Basic IP validation
+    if (deviceIP && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(deviceIP)) {
+        feedbackElement.textContent = 'Invalid IP address format';
+        feedbackElement.style.color = 'red';
+        return;
+    }
+    
     feedbackElement.textContent = 'Saving settings...';
     feedbackElement.style.color = 'orange';
     
+    // Submit the form
     form.submit();
     
-    // Feedback for form submission is tricky with iframe target, this is a generic message
-    setTimeout(() => {
-        feedbackElement.textContent = 'Settings submitted. Page will refresh...';
-        feedbackElement.style.color = 'green';
+    // Wait for settings to be saved
+    setTimeout(async () => {
+        feedbackElement.textContent = 'Settings saved. Checking device connectivity...';
+        
+        if (deviceIP) {
+            try {
+                // Try to fetch data from status.php to validate the device is reachable
+                const timestamp = new Date().getTime();
+                const response = await fetch(`/plugins/esphomepm/status.php?t=${timestamp}`);
+                const data = await response.json();
+                
+                if (data.error && data.error.includes('cURL error')) {
+                    feedbackElement.textContent = 'Warning: Device may not be reachable. Settings saved.';
+                    feedbackElement.style.color = 'orange';
+                } else {
+                    feedbackElement.textContent = 'Settings saved successfully!';
+                    feedbackElement.style.color = 'green';
+                }
+            } catch (error) {
+                console.error('Error checking device:', error);
+                feedbackElement.textContent = 'Settings saved, but could not verify device connection.';
+                feedbackElement.style.color = 'orange';
+            }
+        } else {
+            feedbackElement.textContent = 'Settings saved successfully!';
+            feedbackElement.style.color = 'green';
+        }
         
         // Reload the page to show monitoring section
         setTimeout(() => {
             window.location.reload();
-        }, 500);
+        }, 2000);
     }, 1000);
 }
 
@@ -199,27 +232,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const settingsForm = document.getElementById('esphomepmSettingsForm');
     const feedbackElement = document.getElementById('applyFeedback');
 
-    if (applyButton) {
-        applyButton.addEventListener('click', function(event) {
-            event.preventDefault(); 
-            feedbackElement.textContent = 'Saving settings...';
-            feedbackElement.style.color = 'orange';
-            
-            if (settingsForm) {
-                settingsForm.submit(); 
-            }
-            // Feedback for form submission is tricky with iframe target, this is a generic message.
-            setTimeout(() => {
-                feedbackElement.textContent = 'Settings submitted. Refresh if IP or refresh rate changed.';
-                feedbackElement.style.color = 'green';
-                setupRefreshIntervals(); // Re-initialize intervals with new settings
-                updateDeviceStatus(); // Fetch new data immediately
-                
-                // Reload the page to show monitoring section
-                window.location.reload();
-            }, 1500); 
-        });
-    }
+    // We're using the onClick handler in the HTML for the Apply button
+    // No need for a duplicate event listener here
 
     initializePowerGraph();
     setupRefreshIntervals();
