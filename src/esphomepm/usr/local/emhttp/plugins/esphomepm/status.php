@@ -205,6 +205,10 @@ if ($historical_data_available) {
 $current_month_energy_total = $current_month_energy_completed_days + $daily_energy;
 $current_month_cost_total = $current_month_cost_completed_days + $daily_cost;
 
+// Calculate overall totals including today's values
+$overall_total_energy_with_today = $overall_total_energy + $daily_energy;
+$overall_total_cost_with_today = $overall_total_cost + $daily_cost;
+
 // Prepare response
 $response_data = [
     // Live data
@@ -225,8 +229,8 @@ $response_data = [
     // Historical and overall data
     'historical_data_available' => $historical_data_available,
     'historical_months' => $historical_months,
-    'overall_total_energy' => round($overall_total_energy, 3),
-    'overall_total_cost' => round($overall_total_cost, 2),
+    'overall_total_energy' => round($overall_total_energy_with_today, 3),
+    'overall_total_cost' => round($overall_total_cost_with_today, 2),
     'monitoring_start_date' => $monitoring_start_date,
     
     // For backward compatibility
