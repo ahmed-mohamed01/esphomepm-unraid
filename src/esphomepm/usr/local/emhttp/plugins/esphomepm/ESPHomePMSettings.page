@@ -13,64 +13,16 @@ $esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "
 // Determine which tab to show by default
 $showMonitorTab = !empty($esphomepm_device_ip);
 $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 'settings');
+
+// Define the tabs
+$tabNames = ['settings' => 'Settings'];
+if ($showMonitorTab) {
+    $tabNames['monitoring'] = 'Monitoring';
+    $tabNames['history'] = 'History';
+}
 ?>
 
 <style>
-    /* Unraid native tab styling */
-    .tabs {
-        display: flex;
-        flex-wrap: wrap;
-        margin: 0;
-    }
-    
-    .tabs .tab {
-        order: 99;
-        flex-grow: 1;
-        width: 100%;
-        display: none;
-    }
-    
-    .tabs .tab [type=radio] {
-        display: none;
-    }
-    
-    .tabs .tab label {
-        display: block;
-        padding: 8px 15px;
-        margin-right: 2px;
-        cursor: pointer;
-        font-weight: bold;
-        background-color: #e8e8e8;
-        border-top-left-radius: 4px;
-        border-top-right-radius: 4px;
-        border: 1px solid #ccc;
-        border-bottom: none;
-    }
-    
-    .tabs .tab label:hover {
-        background-color: #d8d8d8;
-    }
-    
-    .tabs .tab [type=radio]:checked ~ label {
-        background-color: #fff;
-        border-bottom: 1px solid #fff;
-        z-index: 2;
-    }
-    
-    .tabs .tab [type=radio]:checked ~ .content {
-        display: block;
-    }
-    
-    .tabs .tab .content {
-        display: none;
-        padding: 20px;
-        background-color: #fff;
-        order: 1;
-        width: 100%;
-        border-top: 1px solid #ccc;
-        margin-top: -1px;
-    }
-    
     /* Highlight for important values */
     .highlight-value {
         font-size: 1.2em;
@@ -137,12 +89,28 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
     }
 </style>
 
-<!-- Tab buttons at the top, similar to the appdata backup plugin -->
-<div class="tabs">
-    <div class="tab">
-        <input type="radio" name="tabs" id="tab1" <?=($tab == 'settings' ? 'checked' : '')?> onclick="window.location='?tab=settings'">
-        <label for="tab1"><i class="fa fa-cog"></i> Settings</label>
-        <div class="content">
+<?php
+// Create the tab structure using Unraid's native approach
+$tabNames = ['settings' => 'Settings', 'monitoring' => 'Monitoring', 'history' => 'History'];
+$tabIcons = ['settings' => 'fa-cog', 'monitoring' => 'fa-bolt', 'history' => 'fa-calendar'];
+
+// Only show monitoring and history tabs if device is configured
+if (!$showMonitorTab) {
+    unset($tabNames['monitoring']);
+}
+?>
+
+<!-- Unraid native tab navigation -->
+<div id="title">
+    <span class="left">
+        <?php foreach ($tabNames as $tabId => $tabName): ?>
+            <input type="button" value="<?=$tabName?>" onclick="showTab('<?=$tabId?>')" id="btn_<?=$tabId?>" class="<?=($tab == $tabId ? 'active' : '')?>">
+        <?php endforeach; ?>
+    </span>
+</div>
+
+<!-- Tab content containers -->
+<div id="tab_settings" class="tab" style="display:<?=($tab == 'settings' ? 'block' : 'none')?>;">
             <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
             <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
                 <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
@@ -171,14 +139,10 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
             <?php if (empty($esphomepm_device_ip)): ?>
             <div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
             <?php endif; ?>
-        </div>
-    </div>
-    
-    <?php if ($showMonitorTab): ?>
-    <div class="tab">
-        <input type="radio" name="tabs" id="tab2" <?=($tab == 'monitoring' ? 'checked' : '')?> onclick="window.location='?tab=monitoring'">
-        <label for="tab2"><i class="fa fa-bolt"></i> Monitoring</label>
-        <div class="content">
+</div>
+
+<?php if ($showMonitorTab): ?>
+<div id="tab_monitoring" class="tab" style="display:<?=($tab == 'monitoring' ? 'block' : 'none')?>;">
             <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
             <div class="info-card">
                 <h4>Current Readings</h4>
@@ -216,13 +180,9 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
             <div id="powerGraphContainer" style="margin-top: 10px; height: 250px;">
                 <canvas id="powerGraph"></canvas>
             </div>
-        </div>
-    </div>
-    
-    <div class="tab">
-        <input type="radio" name="tabs" id="tab3" <?=($tab == 'history' ? 'checked' : '')?> onclick="window.location='?tab=history'">
-        <label for="tab3"><i class="fa fa-calendar"></i> History</label>
-        <div class="content">
+</div>
+
+<div id="tab_history" class="tab" style="display:<?=($tab == 'history' ? 'block' : 'none')?>;">
             <div class="title"><span class="left"><i class="fa fa-calendar title"></i>Monthly Costs</span></div>
             
             <div class="total-cost-highlight">
@@ -261,7 +221,54 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
     <?php endif; ?>
 </div>
 
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the current tab from URL or default to settings
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab') || 'settings';
+    
+    // Initialize the current tab
+    showTab(currentTab);
+});
 
+function showTab(tabId) {
+    // Hide all tabs
+    const tabs = document.querySelectorAll('.tab');
+    tabs.forEach(tab => tab.style.display = 'none');
+    
+    // Remove active class from all tab buttons
+    const tabButtons = document.querySelectorAll('input[id^="tab_"]');
+    tabButtons.forEach(btn => btn.classList.remove('active'));
+    
+    // Show selected tab and mark its button as active
+    const selectedTab = document.getElementById(`tab_${tabId}`);
+    if (selectedTab) {
+        selectedTab.style.display = 'block';
+        
+        const tabButton = document.getElementById(`btn_${tabId}`);
+        if (tabButton) {
+            tabButton.classList.add('active');
+        }
+        
+        // If we're on the monitoring tab, initialize the power graph
+        if (tabId === 'monitoring') {
+            if (typeof initializePowerGraph === 'function') {
+                initializePowerGraph();
+            }
+            
+            // Update device status for monitoring tab
+            if (typeof updateDeviceStatus === 'function') {
+                updateDeviceStatus('monitoring');
+            }
+        } else if (tabId === 'history') {
+            // Update device status for history tab
+            if (typeof updateDeviceStatus === 'function') {
+                updateDeviceStatus('history');
+            }
+        }
+    }
+}
+</script>
 
 <!-- Include Chart.js from CDN -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
