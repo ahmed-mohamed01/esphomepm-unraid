@@ -340,21 +340,46 @@ function updateDeviceStatus() {
                 console.log('Full response data:', data);
                 
                 // Create a structured historical data object from the response
+                // Create a structured historical data object from the response
+                // Handle zero values properly - don't treat them as missing values
                 const historicalData = {
                     months: data.historical_months || {},
-                    monitoring_since: data.monitoring_start_date || '--',
-                    overall_total_energy: data.overall_total_energy || '--',
-                    overall_total_cost: data.overall_total_cost || '--'
+                    monitoring_since: data.monitoring_start_date || '--'
                 };
+                
+                // Special handling for overall totals to properly display zeros
+                if (data.overall_total_energy !== undefined) {
+                    historicalData.overall_total_energy = parseFloat(data.overall_total_energy).toFixed(3);
+                } else {
+                    historicalData.overall_total_energy = '--';
+                }
+                
+                if (data.overall_total_cost !== undefined) {
+                    historicalData.overall_total_cost = parseFloat(data.overall_total_cost).toFixed(2);
+                } else {
+                    historicalData.overall_total_cost = '--';
+                }
                 
                 const monthlyData = historicalData.months;
                 const monitoringSince = historicalData.monitoring_since;
                 const overallTotalEnergy = historicalData.overall_total_energy;
                 const overallTotalCost = historicalData.overall_total_cost;
-                    
-                document.getElementById('monitoringSince').textContent = monitoringSince;
-                document.getElementById('overallTotalEnergy').textContent = `${overallTotalEnergy} kWh`;
-                document.getElementById('overallTotalCost').textContent = `${overallTotalCost} ${data.costs_unit}`;
+                
+                // Update the UI elements
+                const monitoringSinceElement = document.getElementById('monitoringSince');
+                if (monitoringSinceElement) {
+                    monitoringSinceElement.textContent = monitoringSince;
+                }
+                
+                const overallTotalEnergyElement = document.getElementById('overallTotalEnergy');
+                if (overallTotalEnergyElement) {
+                    overallTotalEnergyElement.textContent = overallTotalEnergy === '--' ? '--' : `${overallTotalEnergy} kWh`;
+                }
+                
+                const overallTotalCostElement = document.getElementById('overallTotalCost');
+                if (overallTotalCostElement) {
+                    overallTotalCostElement.textContent = overallTotalCost === '--' ? '--' : `${overallTotalCost} ${data.costs_unit}`;
+                }
                     
                 const monthlyDataTable = document.getElementById('monthlyDataTable');
                 if (monthlyDataTable) {
