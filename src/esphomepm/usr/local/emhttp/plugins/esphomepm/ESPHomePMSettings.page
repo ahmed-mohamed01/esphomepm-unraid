@@ -16,60 +16,98 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
 ?>
 
 <style>
+/* General styling */
 .highlight-value {
     font-size: 1.2em;
     font-weight: bold;
     color: #486DBA;
 }
+
+/* Card styling */
 .info-card {
     background-color: rgba(255, 255, 255, 0.1);
     border-radius: 5px;
-    padding: 15px;
-    margin-bottom: 20px;
+    padding: 20px;
+    margin-bottom: 30px;
     clear: both;
+    overflow: hidden;
 }
+
 .notice {
     background-color: #f0f7ff;
     border-left: 4px solid #486DBA;
     padding: 15px;
     margin: 20px 0;
 }
-/* Fix for text overlap */
+
+/* Content area */
 .content {
     clear: both;
-    padding-top: 10px;
+    padding-top: 20px;
 }
+
+/* Tab styling */
+#tabs {
+    margin-bottom: 30px;
+}
+
 /* Improved layout for monitoring tab */
 .readings-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 30px;
     margin-bottom: 15px;
 }
+
 .readings-item {
-    margin-bottom: 10px;
+    margin-bottom: 15px;
 }
+
+.readings-item p {
+    margin-bottom: 15px;
+    font-size: 1.1em;
+}
+
 /* Fix for history tab */
 .total-stats {
     display: flex;
     justify-content: space-between;
     flex-wrap: wrap;
 }
+
 .stat-item {
-    margin-right: 30px;
+    margin-right: 40px;
+    margin-bottom: 20px;
+}
+
+/* Title styling */
+.title {
     margin-bottom: 15px;
 }
 </style>
 
 <div id="title">
-  <span class="left">
-    <input type="button" value="Settings" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
-    <?php if ($showMonitorTab): ?>
-    <input type="button" value="Monitoring" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
-    <input type="button" value="History" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
-    <?php endif; ?>
+  <span class="left"><img src="/plugins/esphomepm/icons/esphomepm.png" class="icon">ESPHome Power Monitor</span>
+</div>
+
+<?php
+// Determine which tab to show
+$tab = isset($_GET['tab']) ? $_GET['tab'] : (empty($esphomepm_device_ip) ? 'settings' : 'monitoring');
+$showMonitorTab = !empty($esphomepm_device_ip);
+?>
+
+<div id="tabs" style="margin-bottom: 20px;">
+  <span class="tab <?=$tab == 'settings' ? 'tabactive' : ''?>">
+    <a href="/Settings/ESPHomePMSettings?tab=settings">SETTINGS</a>
+  </span>
+  <span class="tab <?=$tab == 'monitoring' ? 'tabactive' : ''?>" <?=!$showMonitorTab ? 'style="display:none"' : ''?>>
+    <a href="/Settings/ESPHomePMSettings?tab=monitoring">MONITORING</a>
+  </span>
+  <span class="tab <?=$tab == 'history' ? 'tabactive' : ''?>" <?=!$showMonitorTab ? 'style="display:none"' : ''?>>
+    <a href="/Settings/ESPHomePMSettings?tab=history">HISTORY</a>
   </span>
 </div>
+<div style="clear: both; margin-bottom: 20px;"></div>
 
 <?php if ($tab == 'settings'): ?>
 <div class="content">
