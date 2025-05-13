@@ -215,13 +215,33 @@ function done() {
 // Utility to update and flash UI elements
 function updateValue(elementId, value, unit = '', flash = true) {
     const element = document.getElementById(elementId);
-    if (element) {
-        const displayValue = (value === null || value === undefined || isNaN(parseFloat(value))) ? '--' : value;
-        element.textContent = `${displayValue}${unit ? ' ' + unit : ''}`;
+    if (!element) {
+        console.warn(`Element with ID ${elementId} not found`);
+        return;
+    }
+    
+    try {
+        // Handle invalid values
+        let displayValue = '--';
+        if (value !== null && value !== undefined && !isNaN(parseFloat(value))) {
+            displayValue = value;
+        }
+        
+        // Update the element text
+        element.textContent = displayValue;
+        
+        // Add the unit if provided
+        if (unit && displayValue !== '--') {
+            element.textContent += ` ${unit}`;
+        }
+        
+        // Flash effect for updated values
         if (flash && displayValue !== '--') {
             element.classList.add('value-updated');
             setTimeout(() => element.classList.remove('value-updated'), 300);
         }
+    } catch (err) {
+        console.error(`Error updating element ${elementId}:`, err);
     }
 }
 
@@ -250,10 +270,17 @@ function setupRefreshIntervals() {
 }
 
 function updateDeviceStatus() {
-    const deviceIP = document.getElementById('DEVICE_IP').value;
-    const deviceStatusDiv = document.getElementById('deviceStatus');
-
-    if (!deviceIP || !deviceStatusDiv) {
+    // Get the device IP from the input field
+    const deviceIPElement = document.getElementById('DEVICE_IP');
+    if (!deviceIPElement) {
+        console.error('DEVICE_IP element not found');
+        return;
+    }
+    const deviceIP = deviceIPElement.value;
+    
+    // Check if we have a valid IP
+    if (!deviceIP) {
+        console.log('No device IP configured');
         return;
     }
 
@@ -275,17 +302,39 @@ function updateDeviceStatus() {
                 }
                 
                 // Update current readings
-                updateValue('currentPower', parseFloat(data.power).toFixed(2), '');
-                updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), '');
-                
-                const costUnit = data.costs_unit || '';
-                document.getElementById('costUnitDisplay').textContent = costUnit;
-                document.getElementById('costUnitDisplayMonthly').textContent = costUnit;
-                document.getElementById('costUnitDisplayTotal').textContent = costUnit;
-                document.getElementById('tableUnitDisplay').textContent = costUnit;
-
-                updateValue('dailyCost', parseFloat(data.daily_cost).toFixed(2));
-                updateValue('monthlyCost', parseFloat(data.current_month_cost_total).toFixed(2));
+                try {
+                    // Safely update power and energy values
+                    if (data.power !== undefined) {
+                        updateValue('currentPower', parseFloat(data.power).toFixed(2), 'W');
+                    }
+                    if (data.today_energy !== undefined) {
+                        updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), 'kWh');
+                    }
+                    
+                    // Safely update cost unit displays
+                    const costUnit = data.costs_unit || 'GBP';
+                    const costUnitElements = [
+                        'costUnitDisplay', 'costUnitDisplayMonthly', 
+                        'costUnitDisplayTotal', 'tableUnitDisplay'
+                    ];
+                    
+                    costUnitElements.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.textContent = costUnit;
+                        }
+                    });
+                    
+                    // Safely update cost values
+                    if (data.daily_cost !== undefined) {
+                        updateValue('dailyCost', parseFloat(data.daily_cost).toFixed(2), costUnit);
+                    }
+                    if (data.current_month_cost_total !== undefined) {
+                        updateValue('monthlyCost', parseFloat(data.current_month_cost_total).toFixed(2), costUnit);
+                    }
+                } catch (err) {
+                    console.error('Error updating current readings:', err);
+                }
                 
                 // Update historical data
                 console.log('Full response data:', data);
@@ -387,23 +436,40 @@ function updateDeviceStatus() {
     }
 }
 
-async function fetchGraphDataPoint() {
-    const deviceIP = document.getElementById('DEVICE_IP').value;
-    if (!deviceIP) return;
+function fetchGraphDataPoint() {
+    const deviceIPElement = document.getElementById('DEVICE_IP');
+    if (!deviceIPElement) {
+        console.warn('DEVICE_IP element not found');
+        return;
+    }
+    
+    const deviceIP = deviceIPElement.value;
+    if (!deviceIP) {
+        console.log('No device IP configured');
+        return;
+    }
 
     try {
         const timestamp = new Date().getTime();
-        const response = await fetch(`/plugins/esphomepm/status.php?graph_point=true&t=${timestamp}`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        
-        const data = await response.json();
-        if (data && typeof data.power !== 'undefined' && data.power !== null && !isNaN(parseFloat(data.power))) {
-            updatePowerGraph(parseFloat(data.power));
-        } else if (data.error) {
-            console.warn("Graph data point error:", data.error); // Log error but don't break graph
-        }
+        fetch(`/plugins/esphomepm/status.php?graph_point=true&t=${timestamp}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && typeof data.power !== 'undefined' && data.power !== null && !isNaN(parseFloat(data.power))) {
+                    updatePowerGraph(parseFloat(data.power));
+                } else if (data.error) {
+                    console.warn("Graph data point error:", data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch graph data point:', error);
+            });
     } catch (error) {
-        console.error('Failed to fetch graph data point:', error);
+        console.error('Error in fetchGraphDataPoint:', error);
     }
 }
 
