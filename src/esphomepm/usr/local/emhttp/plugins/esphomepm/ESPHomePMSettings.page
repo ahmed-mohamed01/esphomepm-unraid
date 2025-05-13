@@ -26,12 +26,38 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
     border-radius: 5px;
     padding: 15px;
     margin-bottom: 20px;
+    clear: both;
 }
 .notice {
     background-color: #f0f7ff;
     border-left: 4px solid #486DBA;
     padding: 15px;
     margin: 20px 0;
+}
+/* Fix for text overlap */
+.content {
+    clear: both;
+    padding-top: 10px;
+}
+/* Improved layout for monitoring tab */
+.readings-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-bottom: 15px;
+}
+.readings-item {
+    margin-bottom: 10px;
+}
+/* Fix for history tab */
+.total-stats {
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+.stat-item {
+    margin-right: 30px;
+    margin-bottom: 15px;
 }
 </style>
 
@@ -79,9 +105,16 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
   <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
   <div class="info-card">
     <h4>Current Readings</h4>
-    <p>Current Power: <span id="currentPower" class="highlight-value">--</span> W</p>
-    <p>Daily Energy: <span id="dailyEnergy">--</span> kWh</p>
-    <p>Daily Cost: <span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></p>
+    <div class="readings-grid">
+      <div class="readings-item">
+        <p>Current Power: <span id="currentPower" class="highlight-value">--</span> W</p>
+        <p>Daily Energy: <span id="dailyEnergy">--</span> kWh</p>
+      </div>
+      <div class="readings-item">
+        <p>Daily Cost: <span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></p>
+        <p>Monthly Cost: <span id="monthlyCost" class="highlight-value">--</span> <span id="costUnitMonthly"><?=$esphomepm_costs_unit?></span></p>
+      </div>
+    </div>
   </div>
   
   <div class="title"><span class="left"><i class="fa fa-area-chart title"></i>Power Graph</span></div>
@@ -92,11 +125,16 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
 
 <?php elseif ($tab == 'history' && $showMonitorTab): ?>
 <div class="content">
-  <div class="title"><span class="left"><i class="fa fa-calendar title"></i>Monthly Costs</span></div>
+  <div class="title"><span class="left"><i class="fa fa-history title"></i>Historical Data</span></div>
   <div class="info-card">
-    <h4>Historical Data</h4>
-    <p>Total Energy: <span id="totalEnergy" class="highlight-value">--</span> kWh</p>
-    <p>Total Cost: <span id="totalCost" class="highlight-value">--</span> <?=$esphomepm_costs_unit?></p>
+    <div class="total-stats">
+      <div class="stat-item">
+        <p>Total Energy: <span id="totalEnergy" class="highlight-value">--</span> kWh</p>
+      </div>
+      <div class="stat-item">
+        <p>Total Cost: <span id="totalCost" class="highlight-value">--</span> <span id="historyCostUnit"><?=$esphomepm_costs_unit?></span></p>
+      </div>
+    </div>
   </div>
 </div>
 <?php endif; ?>
@@ -138,6 +176,15 @@ function updateDeviceStatus() {
         if (data.power) document.getElementById('currentPower').textContent = parseFloat(data.power).toFixed(1);
         if (data.daily_energy) document.getElementById('dailyEnergy').textContent = parseFloat(data.daily_energy).toFixed(2);
         if (data.daily_cost) document.getElementById('dailyCost').textContent = parseFloat(data.daily_cost).toFixed(2);
+        
+        // Calculate and display monthly cost (estimated from daily cost)
+        if (data.daily_cost) {
+          const monthlyCostElement = document.getElementById('monthlyCost');
+          if (monthlyCostElement) {
+            const monthlyCost = parseFloat(data.daily_cost) * 30; // Approximate monthly cost
+            monthlyCostElement.textContent = monthlyCost.toFixed(2);
+          }
+        }
       } else if (tab === 'history') {
         if (data.overall_total_energy) document.getElementById('totalEnergy').textContent = parseFloat(data.overall_total_energy).toFixed(2);
         if (data.overall_total_cost) document.getElementById('totalCost').textContent = parseFloat(data.overall_total_cost).toFixed(2);
