@@ -3,7 +3,7 @@ Icon="esphomepm.png"
 Title="ESPHome Power Monitor"
 ---
 <?php
-require_once("data-handler.php");
+require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
 $config = load_plugin_config();
 $esphomepm_device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : "";
 $esphomepm_device_name = isset($config['DEVICE_NAME']) ? $config['DEVICE_NAME'] : "Unraid Server PM";

@@ -3,7 +3,7 @@ Icon="esphomepm.png"
 ---
 <style type="text/css">
     <?php
-        require_once("data-handler.php");
+        require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
         $config = load_plugin_config();
         $sortnr = $N+2
     ?>
