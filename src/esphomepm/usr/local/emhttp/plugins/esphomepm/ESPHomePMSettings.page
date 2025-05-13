@@ -384,34 +384,223 @@ function updateValue(elementId, value, unit = '', flash = true) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Settings form handling
-    const feedbackElement = document.getElementById('applyFeedback');
+    // Get the current tab from URL or default
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab') || 'settings';
     
-    // The Apply button already has an inline onClick handler
-    // No need for a duplicate event listener here
-
-    // Initialize the power graph
-    initializePowerGraph();
+    // Only initialize monitoring features if we're on the monitoring tab
+    // or if the device is configured
+    const deviceIP = document.getElementById('DEVICE_IP');
+    const isConfigured = deviceIP && deviceIP.value;
     
-    // Set up refresh intervals
-    setupRefreshIntervals();
+    if (currentTab === 'monitoring' || currentTab === 'history') {
+        if (isConfigured) {
+            // Initialize the power graph if we're on the monitoring tab
+            if (currentTab === 'monitoring') {
+                initializePowerGraph();
+            }
+            
+            // Set up refresh intervals for data
+            setupRefreshIntervals(currentTab);
+        }
+    }
 });
 
-function setupRefreshIntervals() {
+function setupRefreshIntervals(currentTab) {
     if (refreshInterval) clearInterval(refreshInterval);
     if (graphRefreshInterval) clearInterval(graphRefreshInterval);
     
     // Initial status update
-    updateDeviceStatus();
+    updateDeviceStatus(currentTab);
     
     // Set up refresh interval for device status
-    refreshInterval = setInterval(updateDeviceStatus, 10000); // Every 10 seconds
+    refreshInterval = setInterval(function() {
+        updateDeviceStatus(currentTab);
+    }, 10000); // Every 10 seconds
     
-    // Set up refresh interval for graph data
-    graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Every 1 second
+    // Set up refresh interval for graph data if we're on the monitoring tab
+    if (currentTab === 'monitoring') {
+        graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Every 1 second
+    }
 }
 
 // Tab navigation is now handled by the onclick attributes in the tab inputs
+
+function updateDeviceStatus(currentTab) {
+    const deviceIPElement = document.getElementById('DEVICE_IP');
+    if (!deviceIPElement) {
+        console.error('DEVICE_IP element not found');
+        return;
+    }
+    
+    const deviceIP = deviceIPElement.value;
+    if (!deviceIP) {
+        console.log('No device IP configured');
+        return;
+    }
+    
+    try {
+        const timestamp = new Date().getTime();
+        fetch(`/plugins/esphomepm/status.php?t=${timestamp}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error('Error from status.php:', data.error);
+                    if (currentTab === 'monitoring') {
+                        updateValue('dailyEnergy', data.error, '', false);
+                        updateValue('currentPower', 'Error', '', false);
+                    }
+                    return;
+                }
+                
+                // Only update UI elements if we're on the relevant tab
+                if (currentTab === 'monitoring' || currentTab === 'history') {
+                    // Update current readings if on monitoring tab
+                    if (currentTab === 'monitoring') {
+                        // Safely update power and energy values
+                        if (data.power !== undefined) {
+                            updateValue('currentPower', parseFloat(data.power).toFixed(2), 'W');
+                        }
+                        if (data.today_energy !== undefined) {
+                            updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), 'kWh');
+                        }
+                        
+                        // Calculate and update costs
+                        if (data.today_energy !== undefined && data.costs_price !== undefined) {
+                            const dailyCost = parseFloat(data.today_energy) * parseFloat(data.costs_price);
+                            updateValue('dailyCost', dailyCost.toFixed(2), data.costs_unit);
+                        }
+                        
+                        if (data.month_energy !== undefined && data.costs_price !== undefined) {
+                            const monthlyCost = parseFloat(data.month_energy) * parseFloat(data.costs_price);
+                            updateValue('monthlyCost', monthlyCost.toFixed(2), data.costs_unit);
+                        }
+                    }
+                    
+                    // Update cost unit displays on both monitoring and history tabs
+                    const costUnit = data.costs_unit || 'GBP';
+                    const costUnitElements = [
+                        'costUnitDisplay', 'costUnitDisplayMonthly', 
+                        'costUnitDisplayTotal', 'tableUnitDisplay'
+                    ];
+                    
+                    costUnitElements.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.textContent = costUnit;
+                        }
+                    });
+                    
+                    // Update monitoring since date
+                    if (data.monitoring_since) {
+                        const monitoringSince = new Date(data.monitoring_since * 1000).toLocaleDateString();
+                        const monitoringSinceElements = ['monitoringSinceMonitoring', 'monitoringSinceHistory'];
+                        
+                        monitoringSinceElements.forEach(id => {
+                            const element = document.getElementById(id);
+                            if (element) {
+                                element.textContent = monitoringSince;
+                            }
+                        });
+                    }
+                    
+                    // Update total energy and cost
+                    if (data.total_energy !== undefined && data.costs_price !== undefined) {
+                        const totalEnergy = parseFloat(data.total_energy);
+                        const totalCost = totalEnergy * parseFloat(data.costs_price);
+                        
+                        // Update in both monitoring and history tabs
+                        const totalEnergyElements = ['overallTotalEnergyMonitoring', 'overallTotalEnergyHistory'];
+                        const totalCostElements = ['overallTotalCostMonitoring', 'overallTotalCostHistory'];
+                        
+                        totalEnergyElements.forEach(id => {
+                            const element = document.getElementById(id);
+                            if (element) {
+                                element.textContent = totalEnergy.toFixed(2) + ' kWh';
+                            }
+                        });
+                        
+                        totalCostElements.forEach(id => {
+                            const element = document.getElementById(id);
+                            if (element) {
+                                element.textContent = totalCost.toFixed(2) + ' ' + costUnit;
+                            }
+                        });
+                    }
+                    
+                    // Update monthly data table if we're on the history tab
+                    if (currentTab === 'history' && data.monthly_data) {
+                        const monthlyData = data.monthly_data;
+                        const monthlyDataTable = document.getElementById('monthlyDataTable');
+                        
+                        if (monthlyDataTable) {
+                            monthlyDataTable.innerHTML = '';
+                            
+                            // Sort months in descending order (most recent first)
+                            const sortedMonths = Object.keys(monthlyData).sort().reverse();
+                            
+                            // Create table header
+                            const tableHeader = document.createElement('tr');
+                            tableHeader.innerHTML = `
+                                <th>Month</th>
+                                <th>Energy (kWh)</th>
+                                <th>Cost (${costUnit})</th>
+                            `;
+                            monthlyDataTable.appendChild(tableHeader);
+                            
+                            // Add data rows
+                            let totalEnergy = 0;
+                            let totalCost = 0;
+                            
+                            sortedMonths.forEach(month => {
+                                const energy = parseFloat(monthlyData[month]);
+                                const cost = energy * parseFloat(data.costs_price);
+                                
+                                totalEnergy += energy;
+                                totalCost += cost;
+                                
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td>${month}</td>
+                                    <td>${energy.toFixed(2)}</td>
+                                    <td>${cost.toFixed(2)}</td>
+                                `;
+                                monthlyDataTable.appendChild(row);
+                            });
+                            
+                            // Add total row
+                            const totalRow = document.createElement('tr');
+                            totalRow.className = 'highlight-value';
+                            totalRow.innerHTML = `
+                                <td><strong>Total</strong></td>
+                                <td><strong>${totalEnergy.toFixed(2)}</strong></td>
+                                <td><strong>${totalCost.toFixed(2)}</strong></td>
+                            `;
+                            monthlyDataTable.appendChild(totalRow);
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch device status:', error);
+                if (currentTab === 'monitoring') {
+                    updateValue('currentPower', 'Error', '', false);
+                    updateValue('dailyEnergy', 'Connection Error', '', false);
+                }
+            });
+    } catch (error) {
+        console.error('Error in updateDeviceStatus:', error);
+        if (currentTab === 'monitoring') {
+            updateValue('currentPower', 'Error', '', false);
+            updateValue('dailyEnergy', 'Connection Error', '', false);
+        }
+    }
+}
 
 function fetchGraphDataPoint() {
     const deviceIPElement = document.getElementById('DEVICE_IP');
