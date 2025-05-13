@@ -3,7 +3,8 @@ Icon="esphomepm.png"
 ---
 <style type="text/css">
     <?php
-        $esphomepm_cfg = parse_plugin_cfg("esphomepm",true);
+        require_once("data-handler.php");
+        $config = load_plugin_config();
         $sortnr = $N+2
     ?>
     #dash_esphomepm_settings i, #esphomepm_view {margin-top:0px;}

@@ -3,11 +3,12 @@ Icon="esphomepm.png"
 Title="ESPHome Power Monitor"
 ---
 <?php
-$esphomepm_cfg = parse_plugin_cfg("esphomepm",true);
-$esphomepm_device_ip = isset($esphomepm_cfg['DEVICE_IP']) ? $esphomepm_cfg['DEVICE_IP'] : "";
-$esphomepm_device_name = isset($esphomepm_cfg['DEVICE_NAME']) ? $esphomepm_cfg['DEVICE_NAME'] : "Unraid Server PM";
-$esphomepm_costs_price = isset($esphomepm_cfg['COSTS_PRICE']) ? $esphomepm_cfg['COSTS_PRICE'] : "0.27";
-$esphomepm_costs_unit = isset($esphomepm_cfg['COSTS_UNIT']) ? $esphomepm_cfg['COSTS_UNIT'] : "GBP";
+require_once("data-handler.php");
+$config = load_plugin_config();
+$esphomepm_device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : "";
+$esphomepm_device_name = isset($config['DEVICE_NAME']) ? $config['DEVICE_NAME'] : "Unraid Server PM";
+$esphomepm_costs_price = isset($config['COSTS_PRICE']) ? $config['COSTS_PRICE'] : "0.27";
+$esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 
 // Determine which tab to show by default
 $showMonitorTab = !empty($esphomepm_device_ip);
