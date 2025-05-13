@@ -148,19 +148,7 @@ const graphDataPoints = 60; // Display last 60 seconds of data
 const powerHistory = [];
 const timeHistory = [];
 
-// Utility to update and flash UI elements
-function updateValue(elementId, value, unit = '', flash = true) {
-    const element = document.getElementById(elementId);
-    if (element) {
-        const displayValue = (value === null || value === undefined || isNaN(parseFloat(value))) ? '--' : value;
-        element.textContent = `${displayValue}${unit ? ' ' + unit : ''}`;
-        if (flash && displayValue !== '--') {
-            element.classList.add('value-updated');
-            setTimeout(() => element.classList.remove('value-updated'), 300);
-        }
-    }
-}
-
+// Define key functions first to ensure they're available when called
 function resetDATA(form) {
     form.DEVICE_IP.value = "";
     form.DEVICE_NAME.value = "Unraid Server PM"; // Default name
@@ -222,6 +210,19 @@ async function applySettings(form) {
 
 function done() {
     window.location.href = '/Main';
+}
+
+// Utility to update and flash UI elements
+function updateValue(elementId, value, unit = '', flash = true) {
+    const element = document.getElementById(elementId);
+    if (element) {
+        const displayValue = (value === null || value === undefined || isNaN(parseFloat(value))) ? '--' : value;
+        element.textContent = `${displayValue}${unit ? ' ' + unit : ''}`;
+        if (flash && displayValue !== '--') {
+            element.classList.add('value-updated');
+            setTimeout(() => element.classList.remove('value-updated'), 300);
+        }
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
