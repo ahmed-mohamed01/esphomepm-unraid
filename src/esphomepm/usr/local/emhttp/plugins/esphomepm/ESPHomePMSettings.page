@@ -12,13 +12,20 @@ $esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "
 
 // Determine which tab to show by default
 $showMonitorTab = !empty($esphomepm_device_ip);
-$tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 'settings');
 
 // Define available tabs
-$tabs = ['settings' => 'Settings'];
+$tabNames = ['settings' => 'Settings'];
 if ($showMonitorTab) {
-    $tabs['monitoring'] = 'Monitoring';
-    $tabs['history'] = 'History';
+    $tabNames['monitoring'] = 'Monitoring';
+    $tabNames['history'] = 'History';
+}
+
+// Get the current tab from URL or set default
+$tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 'settings');
+
+// Ensure the tab is valid
+if (!isset($tabNames[$tab])) {
+    $tab = 'settings';
 }
 ?>
 
@@ -89,22 +96,21 @@ if ($showMonitorTab) {
     }
 </style>
 
-<?php
-// We'll use the tabs defined earlier
-?>
-
 <!-- Unraid standard tab navigation -->
 <div id="title">
     <span class="left">
-        <?php foreach ($tabs as $tabId => $tabName): ?>
-        <input type="button" value="<?=$tabName?>" onclick="location='?tab=<?=$tabId?>'" <?=($tab == $tabId) ? 'class="active"' : ''?>>
-        <?php endforeach; ?>
+        <input type="button" value="Settings" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
+        <?php if ($showMonitorTab): ?>
+        <input type="button" value="Monitoring" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
+        <input type="button" value="History" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
+        <?php endif; ?>
     </span>
 </div>
 
 <!-- Tab content containers -->
 <?php if ($tab == 'settings'): ?>
-            <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
+<div class="content">
+    <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
             <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
                 <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
 
@@ -132,8 +138,10 @@ if ($showMonitorTab) {
             <?php if (empty($esphomepm_device_ip)): ?>
             <div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
             <?php endif; ?>
+</div>
 
 <?php elseif ($tab == 'monitoring' && $showMonitorTab): ?>
+<div class="content">
             <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
             <div class="info-card">
                 <h4>Current Readings</h4>
@@ -171,8 +179,10 @@ if ($showMonitorTab) {
             <div id="powerGraphContainer" style="margin-top: 10px; height: 250px;">
                 <canvas id="powerGraph"></canvas>
             </div>
+</div>
 
 <?php elseif ($tab == 'history' && $showMonitorTab): ?>
+<div class="content">
             <div class="title"><span class="left"><i class="fa fa-calendar title"></i>Monthly Costs</span></div>
             
             <div class="total-cost-highlight">
@@ -208,8 +218,8 @@ if ($showMonitorTab) {
             </div>
         </div>
     </div>
-    <?php endif; ?>
 </div>
+<?php endif; ?>
 
 <script type="text/javascript">
 document.addEventListener('DOMContentLoaded', function() {
