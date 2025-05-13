@@ -1,0 +1,909 @@
+Menu="Utilities"
+Icon="esphomepm.png"
+Title="ESPHome Power Monitor"
+---
+<?php
+require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
+$config = load_plugin_config();
+$esphomepm_device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : "";
+$esphomepm_device_name = isset($config['DEVICE_NAME']) ? $config['DEVICE_NAME'] : "Unraid Server PM";
+$esphomepm_costs_price = isset($config['COSTS_PRICE']) ? $config['COSTS_PRICE'] : "0.27";
+$esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
+
+// Determine which tab to show by default
+$showMonitorTab = !empty($esphomepm_device_ip);
+
+// Get the current tab from URL or set default
+$tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 'settings');
+
+?>
+
+<style>
+    /* Highlight for important values */
+    .highlight-value {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #486DBA;
+    }
+    
+    /* Card styling for sections */
+    .info-card {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    /* Value display animations */
+    .value-display {
+        transition: all 0.3s ease;
+    }
+    .value-updated {
+        filter: brightness(1.5);
+    }
+    
+    /* Table styling */
+    .monthly-costs-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+    }
+    .monthly-costs-table th, .monthly-costs-table td {
+        padding: 8px;
+        text-align: left;
+    }
+    
+    /* Definition list styling */
+    dl {
+        margin-bottom: 20px;
+    }
+    dt {
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
+    dd {
+        margin-bottom: 10px;
+        margin-left: 15px;
+    }
+    
+    /* Graph styling */
+    #powerGraph {
+        width: 100%;
+        height: 250px;
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+    
+    /* Total cost highlight */
+    .total-cost-highlight {
+        background-color: #f0f7ff;
+        border-left: 4px solid #486DBA;
+        padding: 15px;
+        margin: 20px 0;
+        font-size: 1.1em;
+    }
+</style>
+
+<!-- Unraid standard tab navigation -->
+<div id="title">
+    <span class="left">
+        <input type="button" value="Settings" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
+        <?php if ($showMonitorTab): ?>
+        <input type="button" value="Monitoring" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
+        <input type="button" value="History" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
+        <?php endif; ?>
+    </span>
+</div>
+
+<!-- Tab content containers -->
+<?php if ($tab == 'settings'): ?>
+<div class="content">
+    <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
+            <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
+                <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
+
+                Device Name:
+                : <input id="DEVICE_NAME" type="text" class="stopped" name="DEVICE_NAME" maxlength="50" value="<?=$esphomepm_device_name;?>" title="" placeholder="ESPHome Device Name" >  
+
+                Device IP:
+                : <input id="DEVICE_IP" type="text" class="stopped" name="DEVICE_IP" maxlength="15" value="<?=$esphomepm_device_ip;?>" title="" placeholder="192.168.1.x" >  
+
+                <div class="title"><span class="left"><i class="fa fa-money title"></i>Cost Settings</span></div>
+                
+                Price per kWh for cost calculation:
+                : <input id="COSTS_PRICE" type="text" class="stopped" name="COSTS_PRICE" maxlength="10" value="<?=$esphomepm_costs_price;?>" title="" placeholder="0.00" >  
+
+                Unit for cost calculation:
+                : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
+
+                <input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
+                : <input type="button" value="Apply" id="APPLY" onClick="document.getElementById('esphomepmSettingsForm').submit()"><input type="button" value="Done" onClick="window.location.href='/Main'">
+            </form>
+
+            <!-- Add a feedback area -->
+            <div id="applyFeedback" style="margin-top: 10px; margin-bottom: 20px; font-weight: bold;"></div>
+            
+            <?php if (empty($esphomepm_device_ip)): ?>
+            <div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
+            <?php endif; ?>
+</div>
+
+<?php elseif ($tab == 'monitoring' && $showMonitorTab): ?>
+<div class="content">
+            <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
+            <div class="info-card">
+                <h4>Current Readings</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <p>Current Power: <span id="currentPower" class="value-display highlight-value">--</span> W</p>
+                        <p>Daily Energy: <span id="dailyEnergy" class="value-display">--</span> kWh</p>
+                    </div>
+                    <div>
+                        <p>Daily Cost: <span id="dailyCost" class="value-display highlight-value">--</span> <span id="costUnitDisplay">--</span></p>
+                        <p>Monthly Cost: <span id="monthlyCost" class="value-display highlight-value">--</span> <span id="costUnitDisplayMonthly">--</span></p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="title"><span class="left"><i class="fa fa-calculator title"></i>Total Cost</span></div>
+            <div class="total-cost-highlight">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Monitoring Since:</strong><br>
+                        <span id="monitoringSinceMonitoring">--</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Energy:</strong><br>
+                        <span id="overallTotalEnergyMonitoring" class="highlight-value">-- kWh</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Cost:</strong><br>
+                        <span id="overallTotalCostMonitoring" class="highlight-value">-- <?=$esphomepm_costs_unit;?></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="title"><span class="left"><i class="fa fa-area-chart title"></i>Power Usage Graph (Last 60s)</span></div>
+            <div id="powerGraphContainer" style="margin-top: 10px; height: 250px;">
+                <canvas id="powerGraph"></canvas>
+            </div>
+</div>
+
+<?php elseif ($tab == 'history' && $showMonitorTab): ?>
+<div class="content">
+            <div class="title"><span class="left"><i class="fa fa-calendar title"></i>Monthly Costs</span></div>
+            
+            <div class="total-cost-highlight">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Monitoring Since:</strong><br>
+                        <span id="monitoringSince">--</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Energy:</strong><br>
+                        <span id="overallTotalEnergy" class="highlight-value">-- kWh</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Cost:</strong><br>
+                        <span id="overallTotalCost" class="highlight-value">-- <?=$esphomepm_costs_unit;?></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="table-responsive">
+                <table class="monthly-costs-table table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Energy (kWh)</th>
+                            <th>Cost (<?=$esphomepm_costs_unit;?>)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monthlyDataTable">
+                        <!-- Monthly data will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script type="text/javascript">
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the current tab from URL or default to settings
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab') || 'settings';
+    
+    // Initialize the power graph if we're on the monitoring tab
+    if (currentTab === 'monitoring') {
+        initializePowerGraph();
+    }
+    
+    // Set up refresh intervals for device status
+    setupRefreshIntervals(currentTab);
+});
+
+function setupRefreshIntervals(currentTab) {
+    // Update device status immediately
+    updateDeviceStatus(currentTab);
+    
+    // Set up interval for device status updates
+    setInterval(function() {
+        updateDeviceStatus(currentTab);
+    }, 10000); // Update every 10 seconds
+    
+    // Set up interval for graph data updates if on monitoring tab
+    if (currentTab === 'monitoring') {
+        setInterval(function() {
+            fetchGraphDataPoint();
+        }, 5000); // Update graph every 5 seconds
+    }
+}
+</script>
+
+<!-- Include Chart.js from CDN -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+
+<script type="text/javascript">
+// Global variables
+let powerChart = null;
+let refreshInterval = null;
+let graphRefreshInterval = null;
+const graphDataPoints = 60; // Display last 60 seconds of data
+const powerHistory = [];
+const timeHistory = [];
+
+// Define key functions first to ensure they're available when called
+function resetDATA(form) {
+    form.DEVICE_IP.value = "";
+    form.DEVICE_NAME.value = "Unraid Server PM"; // Default name
+    form.COSTS_PRICE.value = "0.27";
+    form.COSTS_UNIT.value = "GBP";
+}
+
+// Function to handle tab navigation via URL
+function navigateToTab(tabName) {
+    // Update URL with tab parameter
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+    
+    // Activate the tab
+    $('a[href="#tab-' + tabName + '"]').tab('show');
+}
+
+async function applySettings(form) {
+    const feedbackElement = document.getElementById('applyFeedback');
+    const deviceIP = form.DEVICE_IP.value.trim();
+    
+    // Basic IP validation
+    if (deviceIP && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(deviceIP)) {
+        feedbackElement.textContent = 'Invalid IP address format';
+        feedbackElement.style.color = 'red';
+        return;
+    }
+    
+    feedbackElement.textContent = 'Saving settings...';
+    feedbackElement.style.color = 'orange';
+    
+    // Submit the form
+    form.submit();
+    
+    // Wait for settings to be saved
+    setTimeout(async () => {
+        feedbackElement.textContent = 'Settings saved. Checking device connectivity...';
+        
+        if (deviceIP) {
+            try {
+                // Try to fetch data from status.php to validate the device is reachable
+                const timestamp = new Date().getTime();
+                const response = await fetch(`/plugins/esphomepm/status.php?t=${timestamp}`);
+                const data = await response.json();
+                
+                if (data.error && data.error.includes('cURL error')) {
+                    feedbackElement.textContent = 'Warning: Device may not be reachable. Settings saved.';
+                    feedbackElement.style.color = 'orange';
+                } else {
+                    feedbackElement.textContent = 'Settings saved successfully!';
+                    feedbackElement.style.color = 'green';
+                }
+            } catch (error) {
+                console.error('Error checking device:', error);
+                feedbackElement.textContent = 'Settings saved, but could not verify device connection.';
+                feedbackElement.style.color = 'orange';
+            }
+        } else {
+            feedbackElement.textContent = 'Settings saved successfully!';
+            feedbackElement.style.color = 'green';
+        }
+        
+        // Reload the page to show monitoring section
+        setTimeout(() => {
+            window.location.reload();
+        }, 2000);
+    }, 1000);
+}
+
+function done() {
+    window.location.href = '/Main';
+}
+
+// Utility to update and flash UI elements
+function updateValue(elementId, value, unit = '', flash = true) {
+    const element = document.getElementById(elementId);
+    if (!element) {
+        console.warn(`Element with ID ${elementId} not found`);
+        return;
+    }
+    
+    try {
+        // Handle invalid values
+        let displayValue = '--';
+        if (value !== null && value !== undefined && !isNaN(parseFloat(value))) {
+            displayValue = value;
+        }
+        
+        // Update the element text
+        element.textContent = displayValue;
+        
+        // Add the unit if provided
+        if (unit && displayValue !== '--') {
+            element.textContent += ` ${unit}`;
+        }
+        
+        // Flash effect for updated values
+        if (flash && displayValue !== '--') {
+            element.classList.add('value-updated');
+            setTimeout(() => element.classList.remove('value-updated'), 300);
+        }
+    } catch (err) {
+        console.error(`Error updating element ${elementId}:`, err);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the current tab from URL or default
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentTab = urlParams.get('tab') || 'settings';
+    
+    // Only initialize monitoring features if we're on the monitoring tab
+    // or if the device is configured
+    const deviceIP = document.getElementById('DEVICE_IP');
+    const isConfigured = deviceIP && deviceIP.value;
+    
+    if (currentTab === 'monitoring' || currentTab === 'history') {
+        if (isConfigured) {
+            // Initialize the power graph if we're on the monitoring tab
+            if (currentTab === 'monitoring') {
+                initializePowerGraph();
+            }
+            
+            // Set up refresh intervals for data
+            setupRefreshIntervals(currentTab);
+        }
+    }
+});
+
+function setupRefreshIntervals(currentTab) {
+    if (refreshInterval) clearInterval(refreshInterval);
+    if (graphRefreshInterval) clearInterval(graphRefreshInterval);
+    
+    // Initial status update
+    updateDeviceStatus(currentTab);
+    
+    // Set up refresh interval for device status
+    refreshInterval = setInterval(function() {
+        updateDeviceStatus(currentTab);
+    }, 10000); // Every 10 seconds
+    
+    // Set up refresh interval for graph data if we're on the monitoring tab
+    if (currentTab === 'monitoring') {
+        graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Every 1 second
+    }
+}
+
+// Tab navigation is now handled by the onclick attributes in the tab inputs
+
+function updateDeviceStatus(currentTab) {
+    const deviceIPElement = document.getElementById('DEVICE_IP');
+    if (!deviceIPElement) {
+        console.error('DEVICE_IP element not found');
+        return;
+    }
+    
+    const deviceIP = deviceIPElement.value;
+    if (!deviceIP) {
+        console.log('No device IP configured');
+        return;
+    }
+    
+    try {
+        const timestamp = new Date().getTime();
+        fetch(`/plugins/esphomepm/status.php?t=${timestamp}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error('Error from status.php:', data.error);
+                    if (currentTab === 'monitoring') {
+                        updateValue('dailyEnergy', data.error, '', false);
+                        updateValue('currentPower', 'Error', '', false);
+                    }
+                    return;
+                }
+                
+                // Only update UI elements if we're on the relevant tab
+                if (currentTab === 'monitoring' || currentTab === 'history') {
+                    // Update current readings if on monitoring tab
+                    if (currentTab === 'monitoring') {
+                        // Safely update power and energy values
+                        if (data.power !== undefined) {
+                            updateValue('currentPower', parseFloat(data.power).toFixed(2), 'W');
+                        }
+                        if (data.today_energy !== undefined) {
+                            updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), 'kWh');
+                        }
+                        
+                        // Calculate and update costs
+                        if (data.today_energy !== undefined && data.costs_price !== undefined) {
+                            const dailyCost = parseFloat(data.today_energy) * parseFloat(data.costs_price);
+                            updateValue('dailyCost', dailyCost.toFixed(2), data.costs_unit);
+                        }
+                        
+                        if (data.month_energy !== undefined && data.costs_price !== undefined) {
+                            const monthlyCost = parseFloat(data.month_energy) * parseFloat(data.costs_price);
+                            updateValue('monthlyCost', monthlyCost.toFixed(2), data.costs_unit);
+                        }
+                    }
+                    
+                    // Update cost unit displays on both monitoring and history tabs
+                    const costUnit = data.costs_unit || 'GBP';
+                    const costUnitElements = [
+                        'costUnitDisplay', 'costUnitDisplayMonthly', 
+                        'costUnitDisplayTotal', 'tableUnitDisplay'
+                    ];
+                    
+                    costUnitElements.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.textContent = costUnit;
+                        }
+                    });
+                    
+                    // Update monitoring since date
+                    if (data.monitoring_since) {
+                        const monitoringSince = new Date(data.monitoring_since * 1000).toLocaleDateString();
+                        const monitoringSinceElements = ['monitoringSinceMonitoring', 'monitoringSinceHistory'];
+                        
+                        monitoringSinceElements.forEach(id => {
+                            const element = document.getElementById(id);
+                            if (element) {
+                                element.textContent = monitoringSince;
+                            }
+                        });
+                    }
+                    
+                    // Update total energy and cost
+                    if (data.total_energy !== undefined && data.costs_price !== undefined) {
+                        const totalEnergy = parseFloat(data.total_energy);
+                        const totalCost = totalEnergy * parseFloat(data.costs_price);
+                        
+                        // Update in both monitoring and history tabs
+                        const totalEnergyElements = ['overallTotalEnergyMonitoring', 'overallTotalEnergyHistory'];
+                        const totalCostElements = ['overallTotalCostMonitoring', 'overallTotalCostHistory'];
+                        
+                        totalEnergyElements.forEach(id => {
+                            const element = document.getElementById(id);
+                            if (element) {
+                                element.textContent = totalEnergy.toFixed(2) + ' kWh';
+                            }
+                        });
+                        
+                        totalCostElements.forEach(id => {
+                            const element = document.getElementById(id);
+                            if (element) {
+                                element.textContent = totalCost.toFixed(2) + ' ' + costUnit;
+                            }
+                        });
+                    }
+                    
+                    // Update monthly data table if we're on the history tab
+                    if (currentTab === 'history' && data.monthly_data) {
+                        const monthlyData = data.monthly_data;
+                        const monthlyDataTable = document.getElementById('monthlyDataTable');
+                        
+                        if (monthlyDataTable) {
+                            monthlyDataTable.innerHTML = '';
+                            
+                            // Sort months in descending order (most recent first)
+                            const sortedMonths = Object.keys(monthlyData).sort().reverse();
+                            
+                            // Create table header
+                            const tableHeader = document.createElement('tr');
+                            tableHeader.innerHTML = `
+                                <th>Month</th>
+                                <th>Energy (kWh)</th>
+                                <th>Cost (${costUnit})</th>
+                            `;
+                            monthlyDataTable.appendChild(tableHeader);
+                            
+                            // Add data rows
+                            let totalEnergy = 0;
+                            let totalCost = 0;
+                            
+                            sortedMonths.forEach(month => {
+                                const energy = parseFloat(monthlyData[month]);
+                                const cost = energy * parseFloat(data.costs_price);
+                                
+                                totalEnergy += energy;
+                                totalCost += cost;
+                                
+                                const row = document.createElement('tr');
+                                row.innerHTML = `
+                                    <td>${month}</td>
+                                    <td>${energy.toFixed(2)}</td>
+                                    <td>${cost.toFixed(2)}</td>
+                                `;
+                                monthlyDataTable.appendChild(row);
+                            });
+                            
+                            // Add total row
+                            const totalRow = document.createElement('tr');
+                            totalRow.className = 'highlight-value';
+                            totalRow.innerHTML = `
+                                <td><strong>Total</strong></td>
+                                <td><strong>${totalEnergy.toFixed(2)}</strong></td>
+                                <td><strong>${totalCost.toFixed(2)}</strong></td>
+                            `;
+                            monthlyDataTable.appendChild(totalRow);
+                        }
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch device status:', error);
+                if (currentTab === 'monitoring') {
+                    updateValue('currentPower', 'Error', '', false);
+                    updateValue('dailyEnergy', 'Connection Error', '', false);
+                }
+            });
+    } catch (error) {
+        console.error('Error in updateDeviceStatus:', error);
+        if (currentTab === 'monitoring') {
+            updateValue('currentPower', 'Error', '', false);
+            updateValue('dailyEnergy', 'Connection Error', '', false);
+        }
+    }
+}
+
+function fetchGraphDataPoint() {
+    const deviceIPElement = document.getElementById('DEVICE_IP');
+    if (!deviceIPElement) {
+        console.error('DEVICE_IP element not found');
+        return;
+    }
+    const deviceIP = deviceIPElement.value;
+    
+    // Check if we have a valid IP
+    if (!deviceIP) {
+        console.log('No device IP configured');
+        return;
+    }
+
+    try {
+        const timestamp = new Date().getTime();
+        fetch(`/plugins/esphomepm/status.php?t=${timestamp}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error('Error from status.php:', data.error);
+                    updateValue('dailyEnergy', data.error, '', false);
+                    updateValue('currentPower', 'Error', '', false);
+                    return;
+                }
+                
+                // Update current readings
+                try {
+                    // Safely update power and energy values
+                    if (data.power !== undefined) {
+                        updateValue('currentPower', parseFloat(data.power).toFixed(2), 'W');
+                    }
+                    if (data.today_energy !== undefined) {
+                        updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), 'kWh');
+                    }
+                    
+                    // Safely update cost unit displays
+                    const costUnit = data.costs_unit || 'GBP';
+                    const costUnitElements = [
+                        'costUnitDisplay', 'costUnitDisplayMonthly', 
+                        'costUnitDisplayTotal', 'tableUnitDisplay'
+                    ];
+                    
+                    costUnitElements.forEach(id => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.textContent = costUnit;
+                        }
+                    });
+                    
+                    // Safely update cost values
+                    if (data.daily_cost !== undefined) {
+                        updateValue('dailyCost', parseFloat(data.daily_cost).toFixed(2), costUnit);
+                    }
+                    if (data.current_month_cost_total !== undefined) {
+                        updateValue('monthlyCost', parseFloat(data.current_month_cost_total).toFixed(2), costUnit);
+                    }
+                } catch (err) {
+                    console.error('Error updating current readings:', err);
+                }
+                
+                // Update historical data
+                console.log('Full response data:', data);
+                
+                // Create a structured historical data object from the response
+                // Create a structured historical data object from the response
+                // Handle zero values properly - don't treat them as missing values
+                const historicalData = {
+                    months: data.historical_months || {},
+                    monitoring_since: data.monitoring_start_date || '--'
+                };
+                
+                // Special handling for overall totals to properly display zeros
+                if (data.overall_total_energy !== undefined) {
+                    historicalData.overall_total_energy = parseFloat(data.overall_total_energy).toFixed(3);
+                } else {
+                    historicalData.overall_total_energy = '--';
+                }
+                
+                if (data.overall_total_cost !== undefined) {
+                    historicalData.overall_total_cost = parseFloat(data.overall_total_cost).toFixed(2);
+                } else {
+                    historicalData.overall_total_cost = '--';
+                }
+                
+                const monthlyData = historicalData.months;
+                const monitoringSince = historicalData.monitoring_since;
+                const overallTotalEnergy = historicalData.overall_total_energy;
+                const overallTotalCost = historicalData.overall_total_cost;
+                
+                // Update the UI elements
+                const monitoringSinceElement = document.getElementById('monitoringSince');
+                if (monitoringSinceElement) {
+                    monitoringSinceElement.textContent = monitoringSince;
+                }
+                
+                const overallTotalEnergyElement = document.getElementById('overallTotalEnergy');
+                if (overallTotalEnergyElement) {
+                    overallTotalEnergyElement.textContent = overallTotalEnergy === '--' ? '--' : `${overallTotalEnergy} kWh`;
+                }
+                
+                const overallTotalCostElement = document.getElementById('overallTotalCost');
+                if (overallTotalCostElement) {
+                    overallTotalCostElement.textContent = overallTotalCost === '--' ? '--' : `${overallTotalCost} ${data.costs_unit}`;
+                }
+                    
+                const monthlyDataTable = document.getElementById('monthlyDataTable');
+                if (monthlyDataTable) {
+                    monthlyDataTable.innerHTML = '';
+                    
+                    // Sort months in descending order (most recent first)
+                    const sortedMonths = Object.keys(monthlyData).sort().reverse();
+                    console.log('Sorted months:', sortedMonths);
+                    
+                    // Add current month to the table if it's not already in the historical data
+                    if (data.current_month_energy_total > 0 || data.current_month_cost_total > 0) {
+                        const currentMonthYear = new Date().toISOString().slice(0, 7); // YYYY-MM format
+                        if (!monthlyData[currentMonthYear]) {
+                            monthlyData[currentMonthYear] = {
+                                energy: data.current_month_energy_total,
+                                cost: data.current_month_cost_total
+                            };
+                            if (!sortedMonths.includes(currentMonthYear)) {
+                                sortedMonths.unshift(currentMonthYear);
+                            }
+                        }
+                    }
+                    
+                    if (sortedMonths.length === 0) {
+                        const row = document.createElement('tr');
+                        const cell = document.createElement('td');
+                        cell.setAttribute('colspan', '3');
+                        cell.textContent = 'No monthly data available yet';
+                        cell.style.textAlign = 'center';
+                        row.appendChild(cell);
+                        monthlyDataTable.appendChild(row);
+                    } else {
+                        sortedMonths.forEach(month => {
+                            const monthData = monthlyData[month] || {};
+                            const row = document.createElement('tr');
+                            const monthCell = document.createElement('td');
+                            const energyCell = document.createElement('td');
+                            const costCell = document.createElement('td');
+                            
+                            // Format month for display (YYYY-MM to Month YYYY)
+                            try {
+                                const [year, monthNum] = month.split('-');
+                                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                                const monthName = monthNames[parseInt(monthNum) - 1];
+                                monthCell.textContent = `${monthName} ${year}`;
+                            } catch (e) {
+                                monthCell.textContent = month;
+                            }
+                            
+                            // For historical months, the data structure is different than for current month
+                            const energyValue = monthData.energy_kwh !== undefined ? monthData.energy_kwh : (monthData.energy || 0);
+                            energyCell.textContent = `${parseFloat(energyValue).toFixed(3)} kWh`;
+                            
+                            const costValue = monthData.cost || 0;
+                            costCell.textContent = `${parseFloat(costValue).toFixed(2)} ${data.costs_unit}`;
+                            
+                            row.appendChild(monthCell);
+                            row.appendChild(energyCell);
+                            row.appendChild(costCell);
+                            monthlyDataTable.appendChild(row);
+                        });
+                    }
+                }
+                
+                // Update the power graph with the latest value
+                if (typeof data.power !== 'undefined' && data.power !== null) {
+                    updatePowerGraph(parseFloat(data.power));
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch device status:', error);
+                updateValue('currentPower', 'Error', '', false);
+                updateValue('dailyEnergy', 'Connection Error', '', false);
+            });
+    } catch (error) {
+        console.error('Error in updateDeviceStatus:', error);
+        updateValue('currentPower', 'Error', '', false);
+        updateValue('dailyEnergy', 'Connection Error', '', false);
+    }
+}
+
+function fetchGraphDataPoint() {
+    const deviceIPElement = document.getElementById('DEVICE_IP');
+    if (!deviceIPElement) {
+        console.warn('DEVICE_IP element not found');
+        return;
+    }
+    
+    const deviceIP = deviceIPElement.value;
+    if (!deviceIP) {
+        console.log('No device IP configured');
+        return;
+    }
+
+    try {
+        const timestamp = new Date().getTime();
+        fetch(`/plugins/esphomepm/status.php?graph_point=true&t=${timestamp}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && typeof data.power !== 'undefined' && data.power !== null && !isNaN(parseFloat(data.power))) {
+                    updatePowerGraph(parseFloat(data.power));
+                } else if (data.error) {
+                    console.warn("Graph data point error:", data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch graph data point:', error);
+            });
+    } catch (error) {
+        console.error('Error in fetchGraphDataPoint:', error);
+    }
+}
+
+function initializePowerGraph() {
+    const ctx = document.getElementById('powerGraph').getContext('2d');
+    if (powerChart) {
+        powerChart.destroy();
+    }
+    powerChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [], 
+            datasets: [{
+                label: 'Current Power (W)',
+                data: [],  
+                borderColor: '#F57C00', 
+                backgroundColor: 'rgba(245, 124, 0, 0.2)', 
+                borderWidth: 1,
+                tension: 0.4, 
+                pointRadius: 0, 
+                pointHitRadius: 10
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false, // Disable all animations for performance
+            scales: {
+                x: {
+                    type: 'category',
+                    ticks: {
+                        autoSkip: true,
+                        maxTicksLimit: 10, 
+                        maxRotation: 0,
+                        minRotation: 0
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    suggestedMax: 50 
+                }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += parseFloat(context.parsed.y).toFixed(2) + ' W';
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    });
+    // Pre-fill labels for 60 points to avoid layout shifts
+    for (let i = 0; i < graphDataPoints; i++) {
+        timeHistory.push('');
+        powerHistory.push(null); // Use null for gaps in Chart.js
+    }
+    powerChart.data.labels = [...timeHistory];
+    powerChart.data.datasets[0].data = [...powerHistory];
+    powerChart.update('none');
+}
+
+function updatePowerGraph(power) {
+    if (!powerChart) return;
+
+    const now = new Date();
+    const timeLabel = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+    powerHistory.push(power);
+    timeHistory.push(timeLabel);
+
+    if (powerHistory.length > graphDataPoints) {
+        powerHistory.shift();
+        timeHistory.shift();
+    }
+
+    powerChart.data.labels = [...timeHistory];
+    powerChart.data.datasets[0].data = [...powerHistory];
+    
+    const maxPower = Math.max(...powerHistory.filter(p => p !== null), 0);
+    if (maxPower > 0) {
+        powerChart.options.scales.y.suggestedMax = Math.ceil(maxPower / 10) * 10 + 20; 
+    } else {
+        powerChart.options.scales.y.suggestedMax = 50; 
+    }
+
+    powerChart.update('none'); 
+}
+
+</script>
