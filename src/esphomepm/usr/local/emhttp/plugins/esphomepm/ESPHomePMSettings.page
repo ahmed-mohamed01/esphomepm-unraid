@@ -229,39 +229,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Native Unraid tabs are handled automatically by CSS
 
     // Settings form handling
-    const applyButton = document.getElementById('APPLY');
-    const settingsForm = document.getElementById('esphomepmSettingsForm');
     const feedbackElement = document.getElementById('applyFeedback');
-
-    // Add event listener for Apply button
-    if (applyButton && settingsForm) {
-        applyButton.addEventListener('click', function() {
-            // Basic IP validation
-            const deviceIP = settingsForm.DEVICE_IP.value.trim();
-            if (deviceIP && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(deviceIP)) {
-                feedbackElement.textContent = 'Invalid IP address format';
-                feedbackElement.style.color = 'red';
-                return;
-            }
-            
-            feedbackElement.textContent = 'Saving settings...';
-            feedbackElement.style.color = 'orange';
-            
-            // Submit the form
-            settingsForm.submit();
-            
-            // Wait for settings to be saved
-            setTimeout(function() {
-                feedbackElement.textContent = 'Settings saved successfully!';
-                feedbackElement.style.color = 'green';
-                
-                // Reload the page to show monitoring section
-                setTimeout(function() {
-                    window.location.reload();
-                }, 2000);
-            }, 1000);
-        });
-    }
+    
+    // The Apply button already has an inline onClick handler
+    // No need for a duplicate event listener here
 
     initializePowerGraph();
     setupRefreshIntervals();
@@ -278,7 +249,7 @@ function setupRefreshIntervals() {
     graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Graph updates every 1 second
 }
 
-async function updateDeviceStatus() {
+function updateDeviceStatus() {
     const deviceIP = document.getElementById('DEVICE_IP').value;
     const deviceStatusDiv = document.getElementById('deviceStatus');
 
@@ -288,126 +259,129 @@ async function updateDeviceStatus() {
 
     try {
         const timestamp = new Date().getTime();
-        const response = await fetch(`/plugins/esphomepm/status.php?t=${timestamp}`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
+        fetch(`/plugins/esphomepm/status.php?t=${timestamp}`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    console.error('Error from status.php:', data.error);
+                    updateValue('dailyEnergy', data.error, '', false);
+                    updateValue('currentPower', 'Error', '', false);
+                    return;
+                }
+                
+                // Update current readings
+                updateValue('currentPower', parseFloat(data.power).toFixed(2), '');
+                updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), '');
+                
+                const costUnit = data.costs_unit || '';
+                document.getElementById('costUnitDisplay').textContent = costUnit;
+                document.getElementById('costUnitDisplayMonthly').textContent = costUnit;
+                document.getElementById('costUnitDisplayTotal').textContent = costUnit;
+                document.getElementById('tableUnitDisplay').textContent = costUnit;
 
-        if (data.error) {
-            console.error('Error from status.php:', data.error);
-            updateValue('dailyEnergy', data.error, '', false);
-            updateValue('currentPower', 'Error', '', false);
-            return;
-        }
-        
-        // Update current readings
-        updateValue('currentPower', parseFloat(data.power).toFixed(2), '');
-        updateValue('dailyEnergy', parseFloat(data.today_energy).toFixed(3), '');
-        
-        const costUnit = data.costs_unit || '';
-        document.getElementById('costUnitDisplay').textContent = costUnit;
-        document.getElementById('costUnitDisplayMonthly').textContent = costUnit;
-        document.getElementById('costUnitDisplayTotal').textContent = costUnit;
-        document.getElementById('tableUnitDisplay').textContent = costUnit;
-
-        updateValue('dailyCost', parseFloat(data.daily_cost).toFixed(2));
-        updateValue('monthlyCost', parseFloat(data.current_month_cost_total).toFixed(2));
-        
-        // Update historical data
-        // Log the entire response data for debugging
-        console.log('Full response data:', data);
-        
-        // Create a structured historical data object from the response
-        const historicalData = {
-            months: data.historical_months || {},
-            monitoring_since: data.monitoring_start_date || '--',
-            overall_total_energy: data.overall_total_energy || '--',
-            overall_total_cost: data.overall_total_cost || '--'
-        };
-        
-        const monthlyData = historicalData.months;
-        const monitoringSince = historicalData.monitoring_since;
-        const overallTotalEnergy = historicalData.overall_total_energy;
-        const overallTotalCost = historicalData.overall_total_cost;
-            
-            document.getElementById('monitoringSince').textContent = monitoringSince;
-            document.getElementById('overallTotalEnergy').textContent = `${overallTotalEnergy} kWh`;
-            document.getElementById('overallTotalCost').textContent = `${overallTotalCost} ${data.costs_unit}`;
-            
-            const monthlyDataTable = document.getElementById('monthlyDataTable');
-            monthlyDataTable.innerHTML = '';
-            
-            // Sort months in descending order (most recent first)
-            const sortedMonths = Object.keys(monthlyData).sort().reverse();
-            console.log('Sorted months:', sortedMonths);
-            
-            // Add current month to the table if it's not already in the historical data
-            if (data.current_month_energy_total > 0 || data.current_month_cost_total > 0) {
-                const currentMonthYear = new Date().toISOString().slice(0, 7); // YYYY-MM format
-                if (!monthlyData[currentMonthYear]) {
-                    monthlyData[currentMonthYear] = {
-                        energy: data.current_month_energy_total,
-                        cost: data.current_month_cost_total
-                    };
-                    if (!sortedMonths.includes(currentMonthYear)) {
-                        sortedMonths.unshift(currentMonthYear);
+                updateValue('dailyCost', parseFloat(data.daily_cost).toFixed(2));
+                updateValue('monthlyCost', parseFloat(data.current_month_cost_total).toFixed(2));
+                
+                // Update historical data
+                console.log('Full response data:', data);
+                
+                // Create a structured historical data object from the response
+                const historicalData = {
+                    months: data.historical_months || {},
+                    monitoring_since: data.monitoring_start_date || '--',
+                    overall_total_energy: data.overall_total_energy || '--',
+                    overall_total_cost: data.overall_total_cost || '--'
+                };
+                
+                const monthlyData = historicalData.months;
+                const monitoringSince = historicalData.monitoring_since;
+                const overallTotalEnergy = historicalData.overall_total_energy;
+                const overallTotalCost = historicalData.overall_total_cost;
+                    
+                document.getElementById('monitoringSince').textContent = monitoringSince;
+                document.getElementById('overallTotalEnergy').textContent = `${overallTotalEnergy} kWh`;
+                document.getElementById('overallTotalCost').textContent = `${overallTotalCost} ${data.costs_unit}`;
+                    
+                const monthlyDataTable = document.getElementById('monthlyDataTable');
+                if (monthlyDataTable) {
+                    monthlyDataTable.innerHTML = '';
+                    
+                    // Sort months in descending order (most recent first)
+                    const sortedMonths = Object.keys(monthlyData).sort().reverse();
+                    console.log('Sorted months:', sortedMonths);
+                    
+                    // Add current month to the table if it's not already in the historical data
+                    if (data.current_month_energy_total > 0 || data.current_month_cost_total > 0) {
+                        const currentMonthYear = new Date().toISOString().slice(0, 7); // YYYY-MM format
+                        if (!monthlyData[currentMonthYear]) {
+                            monthlyData[currentMonthYear] = {
+                                energy: data.current_month_energy_total,
+                                cost: data.current_month_cost_total
+                            };
+                            if (!sortedMonths.includes(currentMonthYear)) {
+                                sortedMonths.unshift(currentMonthYear);
+                            }
+                        }
+                    }
+                    
+                    if (sortedMonths.length === 0) {
+                        const row = document.createElement('tr');
+                        const cell = document.createElement('td');
+                        cell.setAttribute('colspan', '3');
+                        cell.textContent = 'No monthly data available yet';
+                        cell.style.textAlign = 'center';
+                        row.appendChild(cell);
+                        monthlyDataTable.appendChild(row);
+                    } else {
+                        sortedMonths.forEach(month => {
+                            const monthData = monthlyData[month] || {};
+                            const row = document.createElement('tr');
+                            const monthCell = document.createElement('td');
+                            const energyCell = document.createElement('td');
+                            const costCell = document.createElement('td');
+                            
+                            // Format month for display (YYYY-MM to Month YYYY)
+                            try {
+                                const [year, monthNum] = month.split('-');
+                                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+                                const monthName = monthNames[parseInt(monthNum) - 1];
+                                monthCell.textContent = `${monthName} ${year}`;
+                            } catch (e) {
+                                monthCell.textContent = month;
+                            }
+                            
+                            // For historical months, the data structure is different than for current month
+                            const energyValue = monthData.energy_kwh !== undefined ? monthData.energy_kwh : (monthData.energy || 0);
+                            energyCell.textContent = `${parseFloat(energyValue).toFixed(3)} kWh`;
+                            
+                            const costValue = monthData.cost || 0;
+                            costCell.textContent = `${parseFloat(costValue).toFixed(2)} ${data.costs_unit}`;
+                            
+                            row.appendChild(monthCell);
+                            row.appendChild(energyCell);
+                            row.appendChild(costCell);
+                            monthlyDataTable.appendChild(row);
+                        });
                     }
                 }
-            }
-            
-            if (sortedMonths.length === 0) {
-                const row = document.createElement('tr');
-                const cell = document.createElement('td');
-                cell.setAttribute('colspan', '3');
-                cell.textContent = 'No monthly data available yet';
-                cell.style.textAlign = 'center';
-                row.appendChild(cell);
-                monthlyDataTable.appendChild(row);
-            } else {
-                sortedMonths.forEach(month => {
-                    const monthData = monthlyData[month] || {};
-                    const row = document.createElement('tr');
-                    const monthCell = document.createElement('td');
-                    const energyCell = document.createElement('td');
-                    const costCell = document.createElement('td');
-                    
-                    // Format month for display (YYYY-MM to Month YYYY)
-                    try {
-                        const [year, monthNum] = month.split('-');
-                        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-                        const monthName = monthNames[parseInt(monthNum) - 1];
-                        monthCell.textContent = `${monthName} ${year}`;
-                    } catch (e) {
-                        monthCell.textContent = month;
-                    }
-                    
-                    // For historical months, the data structure is different than for current month
-                    const energyValue = monthData.energy_kwh !== undefined ? monthData.energy_kwh : (monthData.energy || 0);
-                    energyCell.textContent = `${parseFloat(energyValue).toFixed(3)} kWh`;
-                    
-                    const costValue = monthData.cost || 0;
-                    costCell.textContent = `${parseFloat(costValue).toFixed(2)} ${data.costs_unit}`;
-                    
-                    row.appendChild(monthCell);
-                    row.appendChild(energyCell);
-                    row.appendChild(costCell);
-                    monthlyDataTable.appendChild(row);
-                });
-            }
-            
-            // Log the data to help with debugging
-            console.log('Historical data:', data.historical_data);
-        } else {
-            console.log('No historical data available');
-        }
-            
-        // Log data for debugging
-        console.log('Historical data:', data.historical_months);
-        console.log('Current month data:', data.current_month_energy_total, data.current_month_cost_total);
-
+                
+                // Update the power graph with the latest value
+                if (typeof data.power !== 'undefined' && data.power !== null) {
+                    updatePowerGraph(parseFloat(data.power));
+                }
+            })
+            .catch(error => {
+                console.error('Failed to fetch device status:', error);
+                updateValue('currentPower', 'Error', '', false);
+                updateValue('dailyEnergy', 'Connection Error', '', false);
+            });
     } catch (error) {
-        console.error('Failed to fetch device status:', error);
+        console.error('Error in updateDeviceStatus:', error);
         updateValue('currentPower', 'Error', '', false);
         updateValue('dailyEnergy', 'Connection Error', '', false);
     }
