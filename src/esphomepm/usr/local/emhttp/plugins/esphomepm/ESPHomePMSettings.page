@@ -12,15 +12,40 @@ $esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "
 
 // Determine which tab to show by default
 $showMonitorTab = !empty($esphomepm_device_ip);
+$tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 'settings');
 ?>
 
 <style>
+    /* Tab styling */
+    .nav-tabs {
+        margin-bottom: 20px;
+    }
+    
+    /* Highlight for important values */
+    .highlight-value {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #486DBA;
+    }
+    
+    /* Card styling for sections */
+    .info-card {
+        background-color: rgba(255, 255, 255, 0.1);
+        border-radius: 5px;
+        padding: 15px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    /* Value display animations */
     .value-display {
         transition: all 0.3s ease;
     }
     .value-updated {
-        filter: brightness(1.5); /* Simple brightness increase that works with any theme */
+        filter: brightness(1.5);
     }
+    
+    /* Table styling */
     .monthly-costs-table {
         width: 100%;
         border-collapse: collapse;
@@ -30,7 +55,8 @@ $showMonitorTab = !empty($esphomepm_device_ip);
         padding: 8px;
         text-align: left;
     }
-    /* Use Unraid's native styling for tables */
+    
+    /* Definition list styling */
     dl {
         margin-bottom: 20px;
     }
@@ -42,6 +68,7 @@ $showMonitorTab = !empty($esphomepm_device_ip);
         margin-bottom: 10px;
         margin-left: 15px;
     }
+    
     /* Graph styling */
     #powerGraph {
         width: 100%;
@@ -49,69 +76,125 @@ $showMonitorTab = !empty($esphomepm_device_ip);
         margin-top: 20px;
         margin-bottom: 20px;
     }
+    
+    /* Total cost highlight */
+    .total-cost-highlight {
+        background-color: #f0f7ff;
+        border-left: 4px solid #486DBA;
+        padding: 15px;
+        margin: 20px 0;
+        font-size: 1.1em;
+    }
 </style>
 
-<!-- Settings Form -->
-<form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
-<input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
+<div class="title"><span class="left"><i class="fa fa-plug title"></i>ESPHome Power Monitor</span></div>
 
-Device Name:
-: <input id="DEVICE_NAME" type="text" class="stopped" name="DEVICE_NAME" maxlength="50" value="<?=$esphomepm_device_name;?>" title="" placeholder="ESPHome Device Name" >  
+<!-- Tabs Navigation -->
+<div>
+    <ul class="nav nav-tabs">
+        <li class="<?=($tab == 'settings' ? 'active' : '')?>"><a href="#tab-settings" data-toggle="tab">Settings</a></li>
+        <?php if ($showMonitorTab): ?>
+        <li class="<?=($tab == 'monitoring' ? 'active' : '')?>"><a href="#tab-monitoring" data-toggle="tab">Monitoring</a></li>
+        <li class="<?=($tab == 'history' ? 'active' : '')?>"><a href="#tab-history" data-toggle="tab">History</a></li>
+        <?php endif; ?>
+    </ul>
 
-Device IP:
-: <input id="DEVICE_IP" type="text" class="stopped" name="DEVICE_IP" maxlength="15" value="<?=$esphomepm_device_ip;?>" title="" placeholder="192.168.1.x" >  
+    <div class="tab-content">
+        <!-- Settings Tab -->
+        <div class="tab-pane <?=($tab == 'settings' ? 'active' : '')?>" id="tab-settings">
+            <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
+            <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
+                <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
 
-Price per kWh for cost calculation:
-: <input id="COSTS_PRICE" type="text" class="stopped" name="COSTS_PRICE" maxlength="10" value="<?=$esphomepm_costs_price;?>" title="" placeholder="0.00" >  
+                Device Name:
+                : <input id="DEVICE_NAME" type="text" class="stopped" name="DEVICE_NAME" maxlength="50" value="<?=$esphomepm_device_name;?>" title="" placeholder="ESPHome Device Name" >  
 
-Unit for cost calculation:
-: <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
+                Device IP:
+                : <input id="DEVICE_IP" type="text" class="stopped" name="DEVICE_IP" maxlength="15" value="<?=$esphomepm_device_ip;?>" title="" placeholder="192.168.1.x" >  
 
-<input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
-: <input type="button" value="Apply" id="APPLY" onClick="document.getElementById('esphomepmSettingsForm').submit()"><input type="button" value="Done" onClick="window.location.href='/Main'">
-</form>
+                <div class="title"><span class="left"><i class="fa fa-money title"></i>Cost Settings</span></div>
+                
+                Price per kWh for cost calculation:
+                : <input id="COSTS_PRICE" type="text" class="stopped" name="COSTS_PRICE" maxlength="10" value="<?=$esphomepm_costs_price;?>" title="" placeholder="0.00" >  
 
-<!-- Add a feedback area -->
-<div id="applyFeedback" style="margin-top: 10px; margin-bottom: 20px; font-weight: bold;"></div>
+                Unit for cost calculation:
+                : <input id="COSTS_UNIT" type="text" class="stopped" name="COSTS_UNIT" maxlength="10" value="<?=$esphomepm_costs_unit;?>" title="" placeholder="" >  
 
-<!-- Monitoring Section -->
-<?php if (!empty($esphomepm_device_ip)): ?>
-<div id="deviceStatus">
-        <h3>Power Monitoring</h3>
-        <div id="sensorValues">
-            <h4>Current Readings</h4>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <div>
-                    <p>Current Power: <span id="currentPower" class="value-display">--</span> W</p>
-                    <p>Daily Energy: <span id="dailyEnergy" class="value-display">--</span> kWh</p>
-                </div>
-                <div>
-                    <p>Daily Cost: <span id="dailyCost" class="value-display">--</span> <span id="costUnitDisplay">--</span></p>
-                    <p>Monthly Cost: <span id="monthlyCost" class="value-display">--</span> <span id="costUnitDisplayMonthly">--</span></p>
+                <input id="DEFAULT" class="stopped" type="button" value="Default" onClick="resetDATA(this.form)">
+                : <input type="button" value="Apply" id="APPLY" onClick="document.getElementById('esphomepmSettingsForm').submit()"><input type="button" value="Done" onClick="window.location.href='/Main'">
+            </form>
+
+            <!-- Add a feedback area -->
+            <div id="applyFeedback" style="margin-top: 10px; margin-bottom: 20px; font-weight: bold;"></div>
+            
+            <?php if (empty($esphomepm_device_ip)): ?>
+            <div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
+            <?php endif; ?>
+        </div>
+
+        <?php if ($showMonitorTab): ?>
+        <!-- Monitoring Tab -->
+        <div class="tab-pane <?=($tab == 'monitoring' ? 'active' : '')?>" id="tab-monitoring">
+            <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
+            <div class="info-card">
+                <h4>Current Readings</h4>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <p>Current Power: <span id="currentPower" class="value-display highlight-value">--</span> W</p>
+                        <p>Daily Energy: <span id="dailyEnergy" class="value-display">--</span> kWh</p>
+                    </div>
+                    <div>
+                        <p>Daily Cost: <span id="dailyCost" class="value-display highlight-value">--</span> <span id="costUnitDisplay">--</span></p>
+                        <p>Monthly Cost: <span id="monthlyCost" class="value-display highlight-value">--</span> <span id="costUnitDisplayMonthly">--</span></p>
+                    </div>
                 </div>
             </div>
             
-            <h4 style="margin-top: 20px;">Power Usage Graph (Last 60s)</h4>
+            <div class="title"><span class="left"><i class="fa fa-calculator title"></i>Total Cost</span></div>
+            <div class="total-cost-highlight">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Monitoring Since:</strong><br>
+                        <span id="monitoringSinceMonitoring">--</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Energy:</strong><br>
+                        <span id="overallTotalEnergyMonitoring" class="highlight-value">-- kWh</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Cost:</strong><br>
+                        <span id="overallTotalCostMonitoring" class="highlight-value">-- <?=$esphomepm_costs_unit;?></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="title"><span class="left"><i class="fa fa-area-chart title"></i>Power Usage Graph (Last 60s)</span></div>
             <div id="powerGraphContainer" style="margin-top: 10px; height: 250px;">
                 <canvas id="powerGraph"></canvas>
             </div>
+        </div>
+
+        <!-- History Tab -->
+        <div class="tab-pane <?=($tab == 'history' ? 'active' : '')?>" id="tab-history">
+            <div class="title"><span class="left"><i class="fa fa-calendar title"></i>Monthly Costs</span></div>
             
-            <div id="monthlyCosts">
-            <h3>Monthly Costs</h3>
-            <div class="summary-info">
-                <dl>
-                    <dt>Monitoring Since:</dt>
-                    <dd id="monitoringSince">--</dd>
-                </dl>
-                <dl>
-                    <dt>Overall Total Energy:</dt>
-                    <dd id="overallTotalEnergy">-- kWh</dd>
-                </dl>
-                <dl>
-                    <dt>Overall Total Cost:</dt>
-                    <dd id="overallTotalCost">-- <?=$esphomepm_costs_unit;?></dd>
-                </dl>
+            <div class="total-cost-highlight">
+                <div class="row">
+                    <div class="col-md-4">
+                        <strong>Monitoring Since:</strong><br>
+                        <span id="monitoringSince">--</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Energy:</strong><br>
+                        <span id="overallTotalEnergy" class="highlight-value">-- kWh</span>
+                    </div>
+                    <div class="col-md-4">
+                        <strong>Overall Total Cost:</strong><br>
+                        <span id="overallTotalCost" class="highlight-value">-- <?=$esphomepm_costs_unit;?></span>
+                    </div>
+                </div>
             </div>
+            
             <div class="table-responsive">
                 <table class="monthly-costs-table table table-striped">
                     <thead>
@@ -126,13 +209,10 @@ Unit for cost calculation:
                     </tbody>
                 </table>
             </div>
-            </div>
         </div>
+        <?php endif; ?>
     </div>
 </div>
-<?php else: ?>
-<div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
-<?php endif; ?>
 
 
 
@@ -154,6 +234,17 @@ function resetDATA(form) {
     form.DEVICE_NAME.value = "Unraid Server PM"; // Default name
     form.COSTS_PRICE.value = "0.27";
     form.COSTS_UNIT.value = "GBP";
+}
+
+// Function to handle tab navigation via URL
+function navigateToTab(tabName) {
+    // Update URL with tab parameter
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+    
+    // Activate the tab
+    $('a[href="#tab-' + tabName + '"]').tab('show');
 }
 
 async function applySettings(form) {
@@ -254,23 +345,42 @@ document.addEventListener('DOMContentLoaded', function() {
     // The Apply button already has an inline onClick handler
     // No need for a duplicate event listener here
 
+    // Initialize the power graph
     initializePowerGraph();
+    
+    // Set up refresh intervals
     setupRefreshIntervals();
+    
+    // Handle tab changes
+    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        const tabId = $(e.target).attr('href').replace('#tab-', '');
+        navigateToTab(tabId);
+    });
 });
 
 function setupRefreshIntervals() {
     if (refreshInterval) clearInterval(refreshInterval);
     if (graphRefreshInterval) clearInterval(graphRefreshInterval);
     
-    updateDeviceStatus(); 
-    refreshInterval = setInterval(updateDeviceStatus, 2000); // Hardcoded to 2 seconds
-
-    fetchGraphDataPoint(); 
-    graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Graph updates every 1 second
+    // Initial status update
+    updateDeviceStatus();
+    
+    // Set up refresh interval for device status
+    refreshInterval = setInterval(updateDeviceStatus, 10000); // Every 10 seconds
+    
+    // Set up refresh interval for graph data
+    graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Every 1 second
 }
 
-function updateDeviceStatus() {
-    // Get the device IP from the input field
+// Function to handle tab navigation via URL
+function navigateToTab(tabName) {
+    // Update URL with tab parameter
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', tabName);
+    window.history.pushState({}, '', url);
+}
+
+function fetchGraphDataPoint() {
     const deviceIPElement = document.getElementById('DEVICE_IP');
     if (!deviceIPElement) {
         console.error('DEVICE_IP element not found');
