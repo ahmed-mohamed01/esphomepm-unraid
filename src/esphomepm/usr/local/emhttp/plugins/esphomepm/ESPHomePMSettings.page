@@ -14,11 +14,11 @@ $esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "
 $showMonitorTab = !empty($esphomepm_device_ip);
 $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 'settings');
 
-// Define the tabs
-$tabNames = ['settings' => 'Settings'];
+// Define available tabs
+$tabs = ['settings' => 'Settings'];
 if ($showMonitorTab) {
-    $tabNames['monitoring'] = 'Monitoring';
-    $tabNames['history'] = 'History';
+    $tabs['monitoring'] = 'Monitoring';
+    $tabs['history'] = 'History';
 }
 ?>
 
@@ -90,27 +90,20 @@ if ($showMonitorTab) {
 </style>
 
 <?php
-// Create the tab structure using Unraid's native approach
-$tabNames = ['settings' => 'Settings', 'monitoring' => 'Monitoring', 'history' => 'History'];
-$tabIcons = ['settings' => 'fa-cog', 'monitoring' => 'fa-bolt', 'history' => 'fa-calendar'];
-
-// Only show monitoring and history tabs if device is configured
-if (!$showMonitorTab) {
-    unset($tabNames['monitoring']);
-}
+// We'll use the tabs defined earlier
 ?>
 
-<!-- Unraid native tab navigation -->
+<!-- Unraid standard tab navigation -->
 <div id="title">
     <span class="left">
-        <?php foreach ($tabNames as $tabId => $tabName): ?>
-            <input type="button" value="<?=$tabName?>" onclick="showTab('<?=$tabId?>')" id="btn_<?=$tabId?>" class="<?=($tab == $tabId ? 'active' : '')?>">
+        <?php foreach ($tabs as $tabId => $tabName): ?>
+        <input type="button" value="<?=$tabName?>" onclick="location='?tab=<?=$tabId?>'" <?=($tab == $tabId) ? 'class="active"' : ''?>>
         <?php endforeach; ?>
     </span>
 </div>
 
 <!-- Tab content containers -->
-<div id="tab_settings" class="tab" style="display:<?=($tab == 'settings' ? 'block' : 'none')?>;">
+<?php if ($tab == 'settings'): ?>
             <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
             <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
                 <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
@@ -139,10 +132,8 @@ if (!$showMonitorTab) {
             <?php if (empty($esphomepm_device_ip)): ?>
             <div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
             <?php endif; ?>
-</div>
 
-<?php if ($showMonitorTab): ?>
-<div id="tab_monitoring" class="tab" style="display:<?=($tab == 'monitoring' ? 'block' : 'none')?>;">
+<?php elseif ($tab == 'monitoring' && $showMonitorTab): ?>
             <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
             <div class="info-card">
                 <h4>Current Readings</h4>
@@ -180,9 +171,8 @@ if (!$showMonitorTab) {
             <div id="powerGraphContainer" style="margin-top: 10px; height: 250px;">
                 <canvas id="powerGraph"></canvas>
             </div>
-</div>
 
-<div id="tab_history" class="tab" style="display:<?=($tab == 'history' ? 'block' : 'none')?>;">
+<?php elseif ($tab == 'history' && $showMonitorTab): ?>
             <div class="title"><span class="left"><i class="fa fa-calendar title"></i>Monthly Costs</span></div>
             
             <div class="total-cost-highlight">
@@ -227,45 +217,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const urlParams = new URLSearchParams(window.location.search);
     const currentTab = urlParams.get('tab') || 'settings';
     
-    // Initialize the current tab
-    showTab(currentTab);
+    // Initialize the power graph if we're on the monitoring tab
+    if (currentTab === 'monitoring') {
+        initializePowerGraph();
+    }
+    
+    // Set up refresh intervals for device status
+    setupRefreshIntervals(currentTab);
 });
 
-function showTab(tabId) {
-    // Hide all tabs
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach(tab => tab.style.display = 'none');
+function setupRefreshIntervals(currentTab) {
+    // Update device status immediately
+    updateDeviceStatus(currentTab);
     
-    // Remove active class from all tab buttons
-    const tabButtons = document.querySelectorAll('input[id^="tab_"]');
-    tabButtons.forEach(btn => btn.classList.remove('active'));
+    // Set up interval for device status updates
+    setInterval(function() {
+        updateDeviceStatus(currentTab);
+    }, 10000); // Update every 10 seconds
     
-    // Show selected tab and mark its button as active
-    const selectedTab = document.getElementById(`tab_${tabId}`);
-    if (selectedTab) {
-        selectedTab.style.display = 'block';
-        
-        const tabButton = document.getElementById(`btn_${tabId}`);
-        if (tabButton) {
-            tabButton.classList.add('active');
-        }
-        
-        // If we're on the monitoring tab, initialize the power graph
-        if (tabId === 'monitoring') {
-            if (typeof initializePowerGraph === 'function') {
-                initializePowerGraph();
-            }
-            
-            // Update device status for monitoring tab
-            if (typeof updateDeviceStatus === 'function') {
-                updateDeviceStatus('monitoring');
-            }
-        } else if (tabId === 'history') {
-            // Update device status for history tab
-            if (typeof updateDeviceStatus === 'function') {
-                updateDeviceStatus('history');
-            }
-        }
+    // Set up interval for graph data updates if on monitoring tab
+    if (currentTab === 'monitoring') {
+        setInterval(function() {
+            fetchGraphDataPoint();
+        }, 5000); // Update graph every 5 seconds
     }
 }
 </script>
