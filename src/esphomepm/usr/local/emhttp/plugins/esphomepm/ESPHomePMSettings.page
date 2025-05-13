@@ -16,9 +16,59 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
 ?>
 
 <style>
-    /* Tab styling */
-    .nav-tabs {
-        margin-bottom: 20px;
+    /* Unraid native tab styling */
+    .tabs {
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0;
+    }
+    
+    .tabs .tab {
+        order: 99;
+        flex-grow: 1;
+        width: 100%;
+        display: none;
+    }
+    
+    .tabs .tab [type=radio] {
+        display: none;
+    }
+    
+    .tabs .tab label {
+        display: block;
+        padding: 8px 15px;
+        margin-right: 2px;
+        cursor: pointer;
+        font-weight: bold;
+        background-color: #e8e8e8;
+        border-top-left-radius: 4px;
+        border-top-right-radius: 4px;
+        border: 1px solid #ccc;
+        border-bottom: none;
+    }
+    
+    .tabs .tab label:hover {
+        background-color: #d8d8d8;
+    }
+    
+    .tabs .tab [type=radio]:checked ~ label {
+        background-color: #fff;
+        border-bottom: 1px solid #fff;
+        z-index: 2;
+    }
+    
+    .tabs .tab [type=radio]:checked ~ .content {
+        display: block;
+    }
+    
+    .tabs .tab .content {
+        display: none;
+        padding: 20px;
+        background-color: #fff;
+        order: 1;
+        width: 100%;
+        border-top: 1px solid #ccc;
+        margin-top: -1px;
     }
     
     /* Highlight for important values */
@@ -87,21 +137,12 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
     }
 </style>
 
-<div class="title"><span class="left"><i class="fa fa-plug title"></i>ESPHome Power Monitor</span></div>
-
-<!-- Tabs Navigation -->
-<div>
-    <ul class="nav nav-tabs">
-        <li class="<?=($tab == 'settings' ? 'active' : '')?>"><a href="#tab-settings" data-toggle="tab">Settings</a></li>
-        <?php if ($showMonitorTab): ?>
-        <li class="<?=($tab == 'monitoring' ? 'active' : '')?>"><a href="#tab-monitoring" data-toggle="tab">Monitoring</a></li>
-        <li class="<?=($tab == 'history' ? 'active' : '')?>"><a href="#tab-history" data-toggle="tab">History</a></li>
-        <?php endif; ?>
-    </ul>
-
-    <div class="tab-content">
-        <!-- Settings Tab -->
-        <div class="tab-pane <?=($tab == 'settings' ? 'active' : '')?>" id="tab-settings">
+<!-- Tab buttons at the top, similar to the appdata backup plugin -->
+<div class="tabs">
+    <div class="tab">
+        <input type="radio" name="tabs" id="tab1" <?=($tab == 'settings' ? 'checked' : '')?> onclick="window.location='?tab=settings'">
+        <label for="tab1"><i class="fa fa-cog"></i> Settings</label>
+        <div class="content">
             <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
             <form markdown="1" method="POST" action="/update.php" target="progressFrame" id="esphomepmSettingsForm">
                 <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg" />
@@ -131,10 +172,13 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
             <div class="notice">Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
             <?php endif; ?>
         </div>
-
-        <?php if ($showMonitorTab): ?>
-        <!-- Monitoring Tab -->
-        <div class="tab-pane <?=($tab == 'monitoring' ? 'active' : '')?>" id="tab-monitoring">
+    </div>
+    
+    <?php if ($showMonitorTab): ?>
+    <div class="tab">
+        <input type="radio" name="tabs" id="tab2" <?=($tab == 'monitoring' ? 'checked' : '')?> onclick="window.location='?tab=monitoring'">
+        <label for="tab2"><i class="fa fa-bolt"></i> Monitoring</label>
+        <div class="content">
             <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
             <div class="info-card">
                 <h4>Current Readings</h4>
@@ -173,9 +217,12 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
                 <canvas id="powerGraph"></canvas>
             </div>
         </div>
-
-        <!-- History Tab -->
-        <div class="tab-pane <?=($tab == 'history' ? 'active' : '')?>" id="tab-history">
+    </div>
+    
+    <div class="tab">
+        <input type="radio" name="tabs" id="tab3" <?=($tab == 'history' ? 'checked' : '')?> onclick="window.location='?tab=history'">
+        <label for="tab3"><i class="fa fa-calendar"></i> History</label>
+        <div class="content">
             <div class="title"><span class="left"><i class="fa fa-calendar title"></i>Monthly Costs</span></div>
             
             <div class="total-cost-highlight">
@@ -210,8 +257,8 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
                 </table>
             </div>
         </div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 </div>
 
 
@@ -337,8 +384,6 @@ function updateValue(elementId, value, unit = '', flash = true) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Native Unraid tabs are handled automatically by CSS
-
     // Settings form handling
     const feedbackElement = document.getElementById('applyFeedback');
     
@@ -350,12 +395,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Set up refresh intervals
     setupRefreshIntervals();
-    
-    // Handle tab changes
-    $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-        const tabId = $(e.target).attr('href').replace('#tab-', '');
-        navigateToTab(tabId);
-    });
 });
 
 function setupRefreshIntervals() {
@@ -372,13 +411,7 @@ function setupRefreshIntervals() {
     graphRefreshInterval = setInterval(fetchGraphDataPoint, 1000); // Every 1 second
 }
 
-// Function to handle tab navigation via URL
-function navigateToTab(tabName) {
-    // Update URL with tab parameter
-    const url = new URL(window.location.href);
-    url.searchParams.set('tab', tabName);
-    window.history.pushState({}, '', url);
-}
+// Tab navigation is now handled by the onclick attributes in the tab inputs
 
 function fetchGraphDataPoint() {
     const deviceIPElement = document.getElementById('DEVICE_IP');
