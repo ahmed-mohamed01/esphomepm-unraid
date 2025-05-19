@@ -1,5 +1,5 @@
 Menu="Dashboard"
-Icon="esphomepm.png"
+Icon="icon-bolt"
 ---
 <style type="text/css">
     <?php
@@ -21,7 +21,7 @@ Icon="esphomepm.png"
 	    <tr>
 		    <td></td>
 		    <td colspan='3' class='next'>
-                <i class='icon-esphomepm'></i>
+                <i class='fa fa-bolt'></i>
                 <div class='section'>_(ESPHome Power Monitor)_<br><span id='load'>_(Usage)_: <span class='esphomepm-energy-power'>0</span> W</span><br><br></div>
                 <i class='fa fa-fw chevron' id='esphomepm_view' onclick='toggleChevron("esphomepm_view",0)'></i>
                 <a href='/Settings/ESPHomePMSettings' title="_(Go to ESPHome Power Monitor settings)_"><i class='fa fa-fw fa-cog chevron'></i></a>

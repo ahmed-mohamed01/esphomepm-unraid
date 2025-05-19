@@ -1,5 +1,5 @@
 Menu="Utilities"
-Icon="esphomepm.png"
+Icon="icon-bolt"
 Title="ESPHome Power Monitor"
 ---
 <?php
@@ -46,9 +46,20 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
     padding-top: 20px;
 }
 
-/* Tab styling */
-#tabs {
-    margin-bottom: 30px;
+/* Fix for tab styling to match Unraid */
+#title input[type="button"] {
+    margin-right: 0;
+    border-radius: 0;
+    border-right: none;
+}
+
+#title input[type="button"]:last-of-type {
+    border-right: 1px solid #0090CA;
+}
+
+#title input[type="button"].active {
+    background-color: #0090CA;
+    color: white;
 }
 
 /* Improved layout for monitoring tab */
@@ -84,6 +95,32 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
 .title {
     margin-bottom: 15px;
 }
+
+/* Icon size control */
+.fa {
+    font-size: 1em;
+    margin-right: 5px;
+}
+
+/* Improve table layout */
+table.settings {
+    margin: 0 0 20px 0;
+    width: auto;
+    min-width: 50%;
+}
+
+table.settings td:first-child {
+    width: 30%;
+    padding-right: 10px;
+}
+
+/* Fix for canvas container */
+#powerGraphContainer {
+    height: 250px;
+    margin-top: 10px;
+    width: 100%;
+    position: relative;
+}
 </style>
 
 <div id="title">
@@ -98,7 +135,7 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
 
 <?php if ($tab == 'settings'): ?>
 <div class="content">
-  <div class="title"><span class="left"><i class="fa fa-cog title"></i>Device Configuration</span></div>
+  <div class="title"><span class="left"><i class="fa fa-cog"></i>Device Configuration</span></div>
   <form markdown="1" method="POST" action="/update.php" target="progressFrame">
     <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg">
     
@@ -108,7 +145,7 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
     Device IP:
     : <input type="text" name="DEVICE_IP" value="<?=$esphomepm_device_ip?>" placeholder="192.168.1.x">
     
-    <div class="title"><span class="left"><i class="fa fa-money title"></i>Cost Settings</span></div>
+    <div class="title"><span class="left"><i class="fa fa-money"></i>Cost Settings</span></div>
     
     Price per kWh:
     : <input type="text" name="COSTS_PRICE" value="<?=$esphomepm_costs_price?>" placeholder="0.00">
@@ -147,8 +184,8 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
     </tr>
   </table>
   
-  <div class="title"><span class="left"><i class="fa fa-area-chart title"></i>Power Graph</span></div>
-  <div style="height: 250px; margin-top: 10px;">
+  <div class="title"><span class="left"><i class="fa fa-area-chart"></i>Power Graph</span></div>
+  <div id="powerGraphContainer">
     <canvas id="powerGraph"></canvas>
   </div>
 </div>
@@ -245,7 +282,28 @@ document.addEventListener('DOMContentLoaded', function() {
     },
     options: {
       responsive: true,
-      maintainAspectRatio: false
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          title: {
+            display: true,
+            text: 'Watts'
+          }
+        },
+        x: {
+          title: {
+            display: true,
+            text: 'Time'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top'
+        }
+      }
     }
   });
   
