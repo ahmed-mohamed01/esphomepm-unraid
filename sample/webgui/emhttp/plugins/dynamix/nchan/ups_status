@@ -1,0 +1,141 @@
+#!/usr/bin/php -q
+<?PHP
+/* Copyright 2005-2023, Lime Technology
+ * Copyright 2012-2023, Bergware International.
+ * Copyright 2015, Dan Landon.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2,
+ * as published by the Free Software Foundation.
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ */
+?>
+<?
+$docroot ??= ($_SERVER['DOCUMENT_ROOT'] ?: '/usr/local/emhttp');
+require_once "$docroot/webGui/include/Wrappers.php";
+require_once "$docroot/webGui/include/publish.php";
+extract(parse_plugin_cfg('dynamix',true));
+
+// add translations
+$_SERVER['REQUEST_URI'] = 'settings';
+$login_locale = _var($display,'locale');
+require_once "$docroot/webGui/include/Translations.php";
+
+// remember current language
+$locale_init = $locale;
+$md5_old = -1;
+$state = [
+  'ONLINE'   => _('Online'),
+  'SLAVE'    => '('._('slave').')',
+  'TRIM'     => '('._('trim').')',
+  'BOOST'    => '('._('boost').')',
+  'COMMLOST' => _('Lost communication'),
+  'ONBATT'   => _('On battery'),
+  'NOBATT'   => _('No battery detected'),
+  'LOWBATT'  => _('Low on battery'),
+  'OVERLOAD' => _('UPS overloaded'),
+  'SHUTTING DOWN' => _('System goes down')
+];
+
+$red    = "class='red-text'";
+$green  = "class='green-text'";
+$orange = "class='orange-text'";
+
+function update_translation($locale) {
+  global $docroot,$language;
+  $language = [];
+  if ($locale) {
+    $text = "$docroot/languages/$locale/translations.txt";
+    if (file_exists($text)) {
+      $store = "$docroot/languages/$locale/translations.dot";
+      if (!file_exists($store)) file_put_contents($store,serialize(parse_lang_file($text)));
+      $language = unserialize(file_get_contents($store));
+    }
+    $text = "$docroot/languages/$locale/settings.txt";
+    if (file_exists($text)) {
+      $store = "$docroot/languages/$locale/settings.dot";
+      if (!file_exists($store)) file_put_contents($store,serialize(parse_lang_file($text)));
+      $language = array_merge($language,unserialize(file_get_contents($store)));
+    }
+  }
+}
+while (true) {
+  // check for language changes
+  extract(parse_plugin_cfg('dynamix',true));
+  if (_var($display,'locale') != $locale_init) {
+    $locale_init = _var($display,'locale');
+    update_translation($locale_init);
+  }
+  unset($echo,$rows,$power,$load,$freq,$output,$volt);
+  $defaultCell = "<span>-</span>";
+  $echo = array_fill(0,7,$defaultCell);
+  if (file_exists("/var/run/apcupsd.pid")) {
+    // get battery-level and runtime settings
+    $cfg = parse_plugin_cfg('dynamix.apcupsd');
+    $level = $cfg['BATTERYLEVEL'] ?: 10;
+    $runtime = $cfg['MINUTES'] ?: 5;
+    $overrideUpsCapacity = (int) htmlspecialchars($cfg['OVERRIDE_UPS_CAPACITY'] ?: 0);
+    exec("/sbin/apcaccess -u 2>/dev/null", $rows);
+    foreach ($rows as $row) {
+      [$key, $val] = array_map('trim', explode(':', $row, 2));
+      switch ($key) {
+      case 'MODEL':
+        $echo[0] = $val;
+        break;
+      case 'STATUS':
+        $text = strtr($val, $state);
+        $echo[1] = $val ? (strpos($val,'ONLINE')!==false ? "<span $green>$text</span>" : "<span $red>$text</span>") : "<span $orange>"._('Refreshing')."...</span>";
+        break;
+      case 'BCHARGE':
+        $charge = round($val);
+        $echo[2] = $charge>$level ? "<span $green>$charge %</span>" : "<span $red>$charge %</span>";
+        break;
+      case 'TIMELEFT':
+        $time = round($val);
+        $unit = _('minutes');
+        $echo[3] = $time>$runtime ? "<span $green>$time $unit</span>" : "<span $red>$time $unit</span>";
+        break;
+      case 'NOMPOWER':
+        $power = $val;
+        $echo[4] = $power>0 ? "<span $green>$power W</span>" : "<span $red>$power W</span>";
+        break;
+      case 'LOADPCT':
+        $load = $val;
+        $echo[5] = round($load)." %";
+        break;
+      case 'OUTPUTV':
+        $output = round($val);
+        $echo[6] = "$output V";
+        break;
+      case 'NOMINV':
+        $volt = $val;
+        $minv = floor($volt / 1.1); // +/- 10% tolerance
+        $maxv = ceil($volt * 1.1);
+        break;
+      case 'LINEFREQ':
+        $freq = round($val);
+        break;
+      }
+    }
+
+    // If the override is defined, override the power value, using the same implementation as above.
+    // This is a better implementation, as it allows the existing Unraid code to work with the override.
+    if ($overrideUpsCapacity > 0) {
+      $power = $overrideUpsCapacity;
+      $echo[4] = $power>0 ? "<span $green>$power W</span>" : "<span $red>$power W</span>";
+    }
+
+    if (isset($power) && isset($load)) $echo[5] = ($load<90 ? "<span $green>" : "<span $red>").round($power*$load/100)." W (".$echo[5].")</span>";
+    elseif (isset($load)) $echo[5] = ($load<90 ? "<span>" : "<span $red>").$echo[5]."</span>";
+    $echo[6] = isset($output) ? ((empty($volt) || ($minv<$output && $output<$maxv) ? "<span $green>" : "<span $red>").$echo[6].(isset($freq) ? " ~ $freq Hz" : "")."</span>") : $echo[6];
+  }
+  $echo = json_encode($echo);
+  $md5_new = md5($echo,true);
+  if ($md5_new !== $md5_old) {
+    $md5_old = publish('apcups',$echo)!==false ? $md5_new : -1;
+  }
+  sleep(3);
+}
+?>

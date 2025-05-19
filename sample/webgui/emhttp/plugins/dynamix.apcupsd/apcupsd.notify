@@ -1,0 +1,6 @@
+#
+# Send system notify message from apcupsd
+#
+read MESSAGE
+[[ "$MESSAGE" == *restored* || "$MESSAGE" == *returned* ]] && LEVEL=normal || LEVEL=alert
+/usr/local/emhttp/webGui/scripts/notify -l "/Settings/UPSsettings" -e "Unraid Server Alert" -s "UPS Alert" -d "$MESSAGE" -i $LEVEL

@@ -1,0 +1,30 @@
+Menu="Device New"
+Title="Capabilities"
+Tag="building"
+Cond="array_key_exists($name, $disks) || array_key_exists($name, $devs)"
+---
+<?PHP
+/* Copyright 2005-2023, Lime Technology
+ * Copyright 2012-2023, Bergware International.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2,
+ * as published by the Free Software Foundation.
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ */
+?>
+<script>
+$(function() {
+  $.post("/webGui/include/SmartInfo.php",{cmd:'capabilities',port:'<?=$dev?>',name:'<?=$name?>'}, function(data) {
+    $('#disk_capabilities_div').html(data);
+  });
+});
+</script>
+<div id="disk_capabilities_div">
+
+</div>
+<input type="button" value="_(Done)_" onclick="done()">
+
+:smart_capabilities_help:

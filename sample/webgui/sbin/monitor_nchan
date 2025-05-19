@@ -1,0 +1,81 @@
+#!/bin/bash
+docroot=/usr/local/emhttp                            # webGui root folder
+nchan_pid=/var/run/nchan.pid                         # keeps list of nchan processes registered by GUI
+disk_load=/var/local/emhttp/diskload.ini             # disk load statistics
+nginx=/var/run/nginx.socket                          # nginx local access
+status=http://localhost/pub/session?buffer_length=1  # nchan information about GUI subscribers
+nchan_list=/tmp/nchan_list.tmp
+nchan_id=$(basename "$0")
+
+nchan_subs(){
+  curl -m2 --unix-socket $nginx $status 2>/dev/null | grep -Pom1 'subscribers: \K\d+'
+}
+
+nchan_idle(){
+  local n idle subs
+  idle=3
+  for n in {1..3}; do
+    subs=$(nchan_subs)
+    [[ -z $subs || $subs -eq 0 ]] && ((idle--))
+    sleep 3
+  done
+  [[ $idle -eq 0 ]]
+}
+
+nchan_stop() {
+  echo -n >$nchan_list
+  while IFS=$'\n' read -r nchan; do
+    [[ ${nchan##*/} == '.*' ]] && continue
+    echo $nchan >>$nchan_list
+    pkill -f $nchan
+  done <<< $(ps -eo cmd | grep -Po '/usr/local/emhttp/.*/nchan/.*')
+}
+
+nchan_start() {
+  [[ -e $nchan_list ]] || return
+  while IFS=$'\n' read -r nchan; do
+    if ! pgrep -f $nchan >/dev/null; then
+      $nchan &>/dev/null &
+    fi
+  done < $nchan_list
+  rm -f $nchan_list
+}
+
+if [[ $1 == kill ]]; then
+  echo "Stopping nchan processes..."
+  nchan_stop
+  rm -f $nchan_pid $disk_load
+  exit
+fi
+
+if [[ $1 == stop ]]; then
+  echo "Stopping nchan processes..."
+  nchan_stop
+  exit
+fi
+
+if [[ $1 == start ]]; then
+  echo "Starting nchan processes..."
+  nchan_start
+  exit
+fi
+
+start=$(date +%s)
+while :; do
+  # only act when GUI registered nchan processes are running
+  if [[ -s $nchan_pid ]]; then
+    if nchan_idle; then
+      now=$(date +%s)
+      # log at 1 hour interval
+      if [[ $((now-start)) -ge 3600 ]]; then
+        logger -t $nchan_id -- "Stop running nchan processes"
+        start=$now
+      fi
+      nchan_stop
+      # empty GUI registered list & statistics
+      rm -f $nchan_pid $disk_load
+    fi
+  fi
+  # check every 30 seconds
+  sleep 30
+done &

@@ -1,0 +1,10 @@
+input.fixed {
+    width: 200px;
+}
+
+.Theme--black,
+.Theme--white {
+    span.status.vhshift {
+        margin-right: -10px !important;
+    }
+}

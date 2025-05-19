@@ -1,0 +1,5 @@
+Menu="NetworkServices"
+Type="xmenu"
+Title="VPN Manager"
+Icon="icon-vpn"
+Tabs="false"

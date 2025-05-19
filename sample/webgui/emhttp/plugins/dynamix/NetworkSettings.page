@@ -1,0 +1,5 @@
+Menu="OtherSettings"
+Type="xmenu"
+Title="Network Settings"
+Icon="icon-network"
+Tabs="true"

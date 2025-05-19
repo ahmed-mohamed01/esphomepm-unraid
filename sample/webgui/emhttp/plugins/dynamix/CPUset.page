@@ -1,0 +1,4 @@
+Menu="OtherSettings"
+Title="CPU Pinning"
+Type="xmenu"
+Icon="icon-cpu-pinning"

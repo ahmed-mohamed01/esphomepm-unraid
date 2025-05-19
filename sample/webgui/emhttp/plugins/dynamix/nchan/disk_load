@@ -1,0 +1,32 @@
+#!/bin/bash
+ini=/var/local/emhttp/diskload.ini
+tmp=/var/local/emhttp/diskload.tmp
+declare -a reads writes
+
+# t = poll interval in seconds
+t=2
+
+# initialize array values upon first start
+stats=($(awk '/(sd[a-z]*|nvme[0-9]*n1|vd[a-z]*) /{print $3,$6,$10,$4,$8}' /proc/diskstats))
+c=0; s=${#stats[@]}
+for ((i=0;i<s;i+=5)); do
+  reads[c]=${stats[i+1]}
+  writes[c]=${stats[i+2]}
+  ((c++))
+done
+sleep $t
+
+while :; do
+  stats=($(awk '/(sd[a-z]*|nvme[0-9]*n1|vd[a-z]*) /{print $3,$6,$10,$4,$8}' /proc/diskstats))
+  c=0; s=${#stats[@]}
+  for ((i=0;i<s;i+=5)); do
+    reads[c]=$((stats[i+1]-reads[c]))
+    writes[c]=$((stats[i+2]-writes[c]))
+    echo ${stats[i]}=$((reads[c]*512/t)) $((writes[c]*512/t)) ${stats[i+3]} ${stats[i+4]} >>$tmp
+    reads[c]=${stats[i+1]}
+    writes[c]=${stats[i+2]}
+    ((c++))
+  done
+  mv -f $tmp $ini
+  sleep $t
+done

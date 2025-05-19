@@ -1,0 +1,118 @@
+Menu="UserPreferences"
+Type="xmenu"
+Title="Console Settings"
+Icon="terminal"
+Tag="terminal"
+---
+<?PHP
+/* Copyright 2005-2023, Lime Technology
+ * Copyright 2012-2023, Bergware International.
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License version 2,
+ * as published by the Free Software Foundation.
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ */
+?>
+<?
+// selected keyboard layouts
+$keymaps = [
+  'be-latin1'             => 'Belgian',
+  'br-abnt'               => 'Brazilian (ABNT2 layout)',
+  'bg-cp1251'             => 'Bulgarian',
+  'by'                    => 'Byelorussian',
+  'croat'                 => 'Croat',
+  'cz'                    => 'Czech',
+  'dk'                    => 'Danish',
+  'nl'                    => 'Dutch',
+  'uk'                    => 'English (United Kingdom)',
+  'us'                    => 'English (United States)',
+  'et'                    => 'Estonian',
+  'fi'                    => 'Finnish',
+  'fr'                    => 'French',
+  'de-latin1-nodeadkeys'  => 'German',
+  'gr'                    => 'Greek',
+  'hu101'                 => 'Hungarian',
+  'is-latin1'             => 'Icelandic',
+  'it2'                   => 'Italian',
+  'jp106'                 => 'Japanese',
+  'il'                    => 'Hebrew',
+  'unicode'               => 'Kirghiz',
+  'la-latin1'             => 'Latin American',
+  'lt'                    => 'Latvian',
+  'lt'                    => 'Lithuanian',
+  'mk'                    => 'Macedonian',
+  'no'                    => 'Norwegian',
+  'pl1'                   => 'Polish',
+  'pt-latin1'             => 'Portuguese',
+  'ro'                    => 'Romanian',
+  'ru1'                   => 'Russian (Right Alt)',
+  'ru'                    => 'Russian (Right Ctrl)',
+  'ru3'                   => 'Russian (102 Keys)',
+  'ru4'                   => 'Russian (105 Keys)',
+  'ru-ms'                 => 'Russian (MS Cyrillic Layout)',
+  'ru-yawerty'            => 'Russian (Yawerty Layout)',
+  'sr'                    => 'Serbian',
+  'sk-qwertz'             => 'Slovak',
+  'slovene'               => 'Slovene',
+  'es'                    => 'Spanish',
+  'se-latin1'             => 'Swedish',
+  'de_CH-latin1'          => 'Swiss (German)',
+  'fr_CH-latin1'          => 'Swiss (French)',
+  'trq'                   => 'Turkish',
+  'ua'                    => 'Ukrainian'
+];
+
+// time-out values in minutes
+$minutes = [1,5,10,15,30,45,60];
+?>
+<script>
+function prepareConsole(form) {
+  // preset keyboard layout, screen blank time and persistent bash history
+  $(form).find('[name="#arg[1]"]').val(form.keyboard_layout.value);
+  $(form).find('[name="#arg[2]"]').val(form.screen_blank.value);
+  $(form).find('[name="#arg[3]"]').val(form.persist_bash_history.value);
+}
+</script>
+
+<form markdown="1" name="console_settings" method="POST" action="/update.php" target="progressFrame" onsubmit="prepareConsole(this)">
+<input type="hidden" name="#file" value="dynamix/dynamix.cfg">
+<input type="hidden" name="#section" value="console">
+<input type="hidden" name="#command" value="/webGui/scripts/console">
+<input type="hidden" name="#arg[1]" value="">
+<input type="hidden" name="#arg[2]" value="">
+<input type="hidden" name="#arg[3]" value="">
+
+_(Local keyboard layout)_:
+: <select name="keyboard_layout">
+  <?foreach ($keymaps as $keymap => $text):?>
+  <?=mk_option(_var($console,'keyboard_layout','us'), $keymap, $text)?>
+  <?endforeach;?>
+  </select>
+
+:console_keyboard_help:
+
+_(Local screen blank time)_:
+: <select name="screen_blank">
+  <?=mk_option(_var($console,'screen_blank','default'), 'default', _('Default'))?>
+  <?=mk_option(_var($console,'screen_blank','default'), 'disabled', _('Disabled'))?>
+  <?foreach ($minutes as $minute):?>
+  <?=mk_option(_var($console,'screen_blank','default'), $minute, "$minute "._('minute'.($minute==1?'':'s')))?>
+  <?endforeach;?>
+  </select>
+
+:console_screen_help:
+
+_(Persistent Bash History)_:
+: <select name="persist_bash_history">
+  <?=mk_option(_var($console,'persist_bash_history','0'), '0', _('Disabled'))?>
+  <?=mk_option(_var($console,'persist_bash_history','0'), '1', _('Enabled'))?>
+  </select>
+
+:console_bash_help:
+
+&nbsp;
+: <input type="submit" name="#apply" value="_(Apply)_" disabled><input type="button" value="_(Done)_" onclick="done()">
+</form>

@@ -1,0 +1,60 @@
+#!/bin/bash
+
+SSHD=/usr/sbin/sshd
+CONF=/etc/ssh/sshd_config
+INET=/etc/inetd.conf
+SERV=/etc/services
+
+# read settings
+[[ -e /boot/config/ident.cfg ]] && . <(fromdos </boot/config/ident.cfg)
+
+# preset default values
+[[ -z $USE_TELNET ]] && USE_TELNET=no
+[[ -z $PORTTELNET ]] && PORTTELNET=23
+[[ -z $USE_SSH ]] && USE_SSH=no
+[[ -z $PORTSSH ]] && PORTSSH=22
+[[ -z $USE_UPNP ]] && USE_UPNP=no
+
+# determine ssh daemon listening port
+CURRENT=$(grep -Pom1 '^#?Port \K\d+$' $CONF)
+
+# enable/disable SSH service
+if [[ $USE_SSH == yes ]]; then
+  if [[ ! $(pgrep --ns $$ -cf $SSHD) -gt 0 ]]; then
+    # start non-running ssh daemon
+    /etc/rc.d/rc.sshd start
+  else
+    # restart when port has changed, rc.sshd will update value in $CONF
+    [[ $PORTSSH != $CURRENT ]] && /etc/rc.d/rc.sshd restart
+  fi
+elif [[ $(pgrep --ns $$ -cf $SSHD) -gt 0 ]]; then
+  # stop running ssh daemon
+  /etc/rc.d/rc.sshd stop
+fi
+
+# enable/disable UPnP function
+if [[ $USE_UPNP == yes ]]; then
+  [[ ! -x /usr/bin/upnpc ]] && chmod +x /usr/bin/upnpc
+else
+  [[ -x /usr/bin/upnpc ]] && chmod -x /usr/bin/upnpc
+fi
+
+# update TELNET listening port
+CURRENT=$(grep -Pom1 '^telnet\s+\K\d+' $SERV)
+[[ $PORTTELNET != $CURRENT ]] && sed -ri "s/^(telnet\s+)[0-9]+\/(tcp|udp)\$/\1$PORTTELNET\/\2/" $SERV
+
+# enable/disable TELNET service
+if  [[ $USE_TELNET == yes ]]; then
+  if [[ -n $(grep -o '^#telnet' $INET) ]]; then
+    # restart inet with telnet enabled
+    sed -ri "s/^#(telnet\s.+telnetd\$)/\1/" $INET
+   /etc/rc.d/rc.inetd restart
+  elif [[ $PORTTELNET != $CURRENT ]]; then
+    # restart when port has changed
+    /etc/rc.d/rc.inetd restart
+  fi
+elif [[ -n $(grep -o '^telnet' $INET) ]]; then
+  # restart inet with telnet disabled
+  sed -ri 's/^(telnet\s.+telnetd$)/#\1/' $INET
+  /etc/rc.d/rc.inetd restart
+fi

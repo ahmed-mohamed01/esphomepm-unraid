@@ -1,0 +1,21 @@
+#s1,
+#s2,
+#s3,
+#s4,
+#s5,
+#autosize,
+.empty,
+.full2,
+#zfs-name {
+    display: none;
+}
+i.fa-info.i {
+    margin-right: 10px;
+}
+
+.Theme--black,
+.Theme--white {
+    form[name="share_edit"] {
+        margin-top: -20px;
+    }
+}
