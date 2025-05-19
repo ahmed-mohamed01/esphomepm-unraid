@@ -15,6 +15,10 @@
 <CHANGES>
 ##&name;
 ###2025.05.13.18
+- Reverted to standard Unraid button styling for tabs
+- Fixed layout issues with monitoring and history tabs
+- Improved table layout for better readability
+- Fixed icon sizing issues
 ###2025.05.13.17
 - Fixed tab layout and styling issues
 - Improved spacing between elements

@@ -87,27 +87,14 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
 </style>
 
 <div id="title">
-  <span class="left"><img src="/plugins/esphomepm/icons/esphomepm.png" class="icon">ESPHome Power Monitor</span>
-</div>
-
-<?php
-// Determine which tab to show
-$tab = isset($_GET['tab']) ? $_GET['tab'] : (empty($esphomepm_device_ip) ? 'settings' : 'monitoring');
-$showMonitorTab = !empty($esphomepm_device_ip);
-?>
-
-<div id="tabs" style="margin-bottom: 20px;">
-  <span class="tab <?=$tab == 'settings' ? 'tabactive' : ''?>">
-    <a href="/Settings/ESPHomePMSettings?tab=settings">SETTINGS</a>
-  </span>
-  <span class="tab <?=$tab == 'monitoring' ? 'tabactive' : ''?>" <?=!$showMonitorTab ? 'style="display:none"' : ''?>>
-    <a href="/Settings/ESPHomePMSettings?tab=monitoring">MONITORING</a>
-  </span>
-  <span class="tab <?=$tab == 'history' ? 'tabactive' : ''?>" <?=!$showMonitorTab ? 'style="display:none"' : ''?>>
-    <a href="/Settings/ESPHomePMSettings?tab=history">HISTORY</a>
+  <span class="left">
+    <input type="button" value="Settings" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
+    <?php if ($showMonitorTab): ?>
+    <input type="button" value="Monitoring" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
+    <input type="button" value="History" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
+    <?php endif; ?>
   </span>
 </div>
-<div style="clear: both; margin-bottom: 20px;"></div>
 
 <?php if ($tab == 'settings'): ?>
 <div class="content">
@@ -140,20 +127,25 @@ $showMonitorTab = !empty($esphomepm_device_ip);
 
 <?php elseif ($tab == 'monitoring' && $showMonitorTab): ?>
 <div class="content">
-  <div class="title"><span class="left"><i class="fa fa-bolt title"></i>Power Monitoring</span></div>
-  <div class="info-card">
-    <h4>Current Readings</h4>
-    <div class="readings-grid">
-      <div class="readings-item">
-        <p>Current Power: <span id="currentPower" class="highlight-value">--</span> W</p>
-        <p>Daily Energy: <span id="dailyEnergy">--</span> kWh</p>
-      </div>
-      <div class="readings-item">
-        <p>Daily Cost: <span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></p>
-        <p>Monthly Cost: <span id="monthlyCost" class="highlight-value">--</span> <span id="costUnitMonthly"><?=$esphomepm_costs_unit?></span></p>
-      </div>
-    </div>
-  </div>
+  <div class="title"><span class="left"><i class="fa fa-bolt"></i> Current Readings</span></div>
+  <table class="settings">
+    <tr>
+      <td>Current Power:</td>
+      <td><span id="currentPower" class="highlight-value">--</span> W</td>
+    </tr>
+    <tr>
+      <td>Daily Energy:</td>
+      <td><span id="dailyEnergy">--</span> kWh</td>
+    </tr>
+    <tr>
+      <td>Daily Cost:</td>
+      <td><span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></td>
+    </tr>
+    <tr>
+      <td>Monthly Cost (est.):</td>
+      <td><span id="monthlyCost" class="highlight-value">--</span> <span id="costUnitMonthly"><?=$esphomepm_costs_unit?></span></td>
+    </tr>
+  </table>
   
   <div class="title"><span class="left"><i class="fa fa-area-chart title"></i>Power Graph</span></div>
   <div style="height: 250px; margin-top: 10px;">
@@ -163,17 +155,17 @@ $showMonitorTab = !empty($esphomepm_device_ip);
 
 <?php elseif ($tab == 'history' && $showMonitorTab): ?>
 <div class="content">
-  <div class="title"><span class="left"><i class="fa fa-history title"></i>Historical Data</span></div>
-  <div class="info-card">
-    <div class="total-stats">
-      <div class="stat-item">
-        <p>Total Energy: <span id="totalEnergy" class="highlight-value">--</span> kWh</p>
-      </div>
-      <div class="stat-item">
-        <p>Total Cost: <span id="totalCost" class="highlight-value">--</span> <span id="historyCostUnit"><?=$esphomepm_costs_unit?></span></p>
-      </div>
-    </div>
-  </div>
+  <div class="title"><span class="left"><i class="fa fa-history"></i> Historical Data</span></div>
+  <table class="settings">
+    <tr>
+      <td>Total Energy:</td>
+      <td><span id="totalEnergy" class="highlight-value">--</span> kWh</td>
+    </tr>
+    <tr>
+      <td>Total Cost:</td>
+      <td><span id="totalCost" class="highlight-value">--</span> <span id="historyCostUnit"><?=$esphomepm_costs_unit?></span></td>
+    </tr>
+  </table>
 </div>
 <?php endif; ?>
 
