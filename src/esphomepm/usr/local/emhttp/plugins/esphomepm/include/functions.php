@@ -262,7 +262,14 @@ function esphomepm_log_cron_execution($data) {
     
     // Format the log entry
     $log_entry = "[$timestamp] Daily Update\n";
-    $log_entry .= "Date: $date\n";
+    
+    // Include retry information if available
+    if (isset($data['retry_count'])) {
+        $log_entry .= "Attempt: " . ($data['retry_count'] > 0 ? "Retry #{$data['retry_count']}" : "Initial") . "\n";
+    }
+    
+    // Include target date if available, otherwise use current date
+    $log_entry .= "Date: " . (isset($data['target_date']) ? $data['target_date'] : $date) . "\n";
     
     if (isset($data['yesterday_energy'])) {
         $log_entry .= "Yesterday's Energy: {$data['yesterday_energy']} kWh\n";
@@ -321,13 +328,16 @@ function esphomepm_validate_cron_time() {
     $current_hour = (int)date('H');
     $current_minute = (int)date('i');
     
-    // Expected time is around 23:59
-    $is_expected_time = ($current_hour == 23 && $current_minute >= 55) || 
+    // Expected time is around 23:58-23:59 or just after midnight
+    $is_expected_time = ($current_hour == 23 && $current_minute >= 58) || 
                        ($current_hour == 0 && $current_minute <= 5);
     
-    if (!$is_expected_time) {
+    // Also accept scheduled retry runs
+    $is_retry = isset($_SERVER['ESPHOMEPM_RETRY']) && (int)$_SERVER['ESPHOMEPM_RETRY'] > 0;
+    
+    if (!$is_expected_time && !$is_retry) {
         esphomepm_log_error("data-handler.php executed at unexpected time: " . date('Y-m-d H:i:s'), 'WARNING', 'cron_job');
     }
     
-    return $is_expected_time;
+    return $is_expected_time || $is_retry;
 }
