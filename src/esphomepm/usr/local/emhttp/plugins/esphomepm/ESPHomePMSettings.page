@@ -10,16 +10,16 @@ require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
 $config = load_plugin_config();
 
 // Get device settings
-$esphomepm_device_name = $config['device_name'] ?? '';
-$esphomepm_device_ip = $config['device_ip'] ?? '';
-$esphomepm_costs_price = $config['costs_price'] ?? '0.00';
-$esphomepm_costs_unit = $config['costs_unit'] ?? 'GBP';
+$esphomepm_device_name = isset($config['DEVICE_NAME']) ? $config['DEVICE_NAME'] : "Unraid Server PM";
+$esphomepm_device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : "";
+$esphomepm_costs_price = isset($config['COSTS_PRICE']) ? $config['COSTS_PRICE'] : "0.27";
+$esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 
 // Determine if we should show the monitoring tab
 $showMonitorTab = !empty($esphomepm_device_ip);
 
 // Get current tab
-$tab = $_GET['tab'] ?? 'settings';
+$tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
 if (!in_array($tab, ['settings', 'monitoring', 'history'])) {
     $tab = 'settings';
 }
@@ -31,307 +31,8 @@ if (($tab == 'monitoring' || $tab == 'history') && !$showMonitorTab) {
 ?>
 
 <style>
-/* General styling */
+/* Simple styling for Unraid compatibility */
 .highlight-value {
-    font-size: 1.2em;
-    font-weight: bold;
-    color: #486DBA;
-}
-
-/* Main container styling */
-.plugin-container {
-    max-width: 1200px;
-    margin: 0;
-    padding: 0;
-}
-
-/* Header styling */
-.plugin-header {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-}
-
-/* Section styling */
-.section-header {
-    clear: both;
-    background-color: #1c1c1c;
-    border-bottom: 1px solid #2b2b2b;
-    padding: 5px 10px;
-    margin: 10px 0;
-    font-weight: bold;
-    color: #f2f2f2;
-    display: flex;
-    align-items: center;
-}
-
-.section-header i {
-    margin-right: 5px;
-    width: 16px;
-    text-align: center;
-}
-
-.section-header span {
-    margin-left: 5px;
-}
-
-/* Content area */
-.content {
-    clear: both;
-    padding: 0;
-    margin-top: 20px;
-}
-
-/* Tab styling to match mockup */
-#tabs {
-    display: flex;
-    margin-bottom: 30px;
-}
-
-#tabs a {
-    padding: 10px 20px;
-    border: 1px solid #F57C00;
-    text-decoration: none;
-    color: white;
-    margin-right: -1px;
-}
-
-#tabs a.active {
-    background-color: #F57C00;
-    color: white;
-}
-
-#tabs a:first-child {
-    border-radius: 4px 0 0 4px;
-}
-
-#tabs a:last-child {
-    border-radius: 0 4px 4px 0;
-}
-
-/* Fix for tab styling to match Unraid */
-#title {
-    margin-bottom: 0;
-    border-bottom: 1px solid #606E7F;
-    padding-bottom: 0;
-    clear: both;
-}
-
-.tabs {
-    position: relative;
-    min-height: 200px;
-    margin: 25px 0;
-    clear: both;
-}
-
-.tab {
-    float: left;
-}
-
-.tab label {
-    margin-right: 20px;
-    position: relative;
-    top: 0;
-    cursor: pointer;
-    color: #888;
-    text-transform: uppercase;
-}
-
-.tab [type=radio] {
-    display: none;
-}
-
-.content {
-    position: absolute;
-    top: 28px;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    padding: 20px 0;
-    opacity: 0;
-}
-
-[type=radio]:checked ~ label {
-    border-bottom: 2px solid #1F80E0;
-    color: #1F80E0;
-    z-index: 2;
-}
-
-[type=radio]:checked ~ label ~ .content {
-    z-index: 1;
-    opacity: 1;
-}
-
-#title input[type="button"] {
-    margin-right: 0;
-    border-radius: 0;
-    border-right: none;
-    min-width: 100px;
-}
-
-#title input[type="button"]:last-of-type {
-    border-right: 1px solid #F57C00;
-}
-
-#title input[type="button"].active {
-    background-color: #F57C00;
-    color: white;
-}
-
-/* Data grid layout */
-.data-grid {
-    display: flex;
-    flex-wrap: wrap;
-    margin: 0;
-}
-
-.data-column {
-    flex: 1;
-    min-width: 300px;
-    padding: 0 10px;
-}
-
-.data-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.data-label {
-    font-weight: normal;
-    color: #ccc;
-}
-
-.data-value {
-    font-weight: bold;
-}
-
-/* Table styling */
-table.history-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 0;
-}
-
-table.history-table th {
-    text-align: left;
-    padding: 8px 10px;
-    background-color: #1c1c1c;
-    border-bottom: 1px solid #2b2b2b;
-    color: #f2f2f2;
-}
-
-table.history-table td {
-    padding: 5px 10px;
-    border-bottom: 1px solid #2b2b2b;
-}
-
-table.history-table tr:nth-child(even) {
-    background-color: rgba(255, 255, 255, 0.02);
-}
-
-/* Form styling */
-form.settings-form {
-    max-width: 600px;
-}
-
-form.settings-form dt {
-    padding: 10px 0 5px 0;
-    color: #ccc;
-}
-
-form.settings-form dd {
-    margin-bottom: 15px;
-}
-
-form.settings-form input[type="text"] {
-    width: 100%;
-    max-width: 300px;
-    padding: 5px;
-    background-color: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-}
-
-/* Button styling */
-.button-container {
-    margin-top: 20px;
-    display: flex;
-    gap: 10px;
-}
-
-.button-orange {
-    background-color: #F57C00;
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    cursor: pointer;
-    border-radius: 4px;
-}
-
-.button-default {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    padding: 7px 14px;
-    cursor: pointer;
-    border-radius: 4px;
-}
-
-/* Power graph container */
-#powerGraphContainer {
-    height: 300px;
-    margin: 0;
-    width: 100%;
-    position: relative;
-    border: none;
-    padding: 0;
-}
-
-/* Notice styling */
-.notice {
-    background-color: rgba(0, 144, 202, 0.1);
-    border-left: 4px solid #0090CA;
-    padding: 15px;
-    margin: 20px 0;
-    color: #ccc;
-}
-
-/* Icon styling */
-.fa {
-    margin-right: 5px;
-}
-
-/* Improve table layout for settings */
-table.settings {
-    width: 100%;
-    margin: 0;
-    border-collapse: collapse;
-    table-layout: fixed;
-}
-
-table.settings td {
-    padding: 5px 10px;
-    white-space: nowrap;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-table.settings td:nth-child(odd) {
-    width: 20%;
-    color: #ccc;
-    text-align: left;
-    font-weight: normal;
-}
-
-table.settings td:nth-child(even) {
-    width: 30%;
-    padding-right: 20px;
-}
-
-/* Ensure consistent highlight values */
-.highlight-value {
-    font-size: 1.1em;
     font-weight: bold;
     color: #F57C00;
 }
@@ -341,6 +42,7 @@ table.settings td:nth-child(even) {
 <div id="title" class="nocontrol">_(ESPHome Power Monitor)_ &nbsp;<?=$version?></div>
 <?endif;?>
 
+<form markdown="1" method="GET" action="/Settings/ESPHomePMSettings">
 <div id="title">
   <span class="left">
     <input type="button" value="_(Settings)_" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
@@ -350,119 +52,108 @@ table.settings td:nth-child(even) {
     <?php endif; ?>
   </span>
 </div>
+</form>
 
 <div class="clear"></div>
 
-<div class="plugin-container">
-
-  <?php if ($tab == 'settings'): ?>
-  <div class="content">
-    <div class="section-header"><i class="fa fa-cog"></i><span>Device Configuration</span></div>
-    <form markdown="1" class="settings-form" method="POST" action="/update.php" target="progressFrame">
-      <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg">
-      
-      Device Name:
-      : <input type="text" name="DEVICE_NAME" value="<?=$esphomepm_device_name?>" placeholder="ESPHome Device Name">
-      
-      Device IP:
-      : <input type="text" name="DEVICE_IP" value="<?=$esphomepm_device_ip?>" placeholder="192.168.1.x">
-      
-      <div class="section-header"><i class="fa fa-money"></i><span>Cost Settings</span></div>
-      
-      Price per kWh:
-      : <input type="text" name="COSTS_PRICE" value="<?=$esphomepm_costs_price?>" placeholder="0.00">
-      
-      Currency Unit:
-      : <input type="text" name="COSTS_UNIT" value="<?=$esphomepm_costs_unit?>" placeholder="GBP">
-      
-      <div class="button-container">
-        <input type="button" class="button-default" value="Default" onclick="resetForm(this.form)">
-        <input type="submit" class="button-orange" value="Apply">
-        <input type="button" class="button-default" value="Done" onclick="done()">
-      </div>
-    </form>
-    
-    <?php if (empty($esphomepm_device_ip)): ?>
-    <div class="notice"><i class="fa fa-info-circle"></i> Please configure your ESPHome device IP address and click Apply to start monitoring.</div>
-    <?php endif; ?>
+<?php if ($tab == 'settings'): ?>
+<!-- Settings Tab Content -->
+<form markdown="1" method="POST" action="/update.php" target="progressFrame">
+  <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg">
+  
+  <table class="settings">
+    <tr>
+      <td>Device Name:</td>
+      <td><input type="text" name="DEVICE_NAME" value="<?=$esphomepm_device_name?>" placeholder="ESPHome Device Name"></td>
+    </tr>
+    <tr>
+      <td>Device IP:</td>
+      <td><input type="text" name="DEVICE_IP" value="<?=$esphomepm_device_ip?>" placeholder="192.168.1.x"></td>
+    </tr>
+    <tr>
+      <td>Price per kWh:</td>
+      <td><input type="text" name="COSTS_PRICE" value="<?=$esphomepm_costs_price?>" placeholder="0.00"></td>
+    </tr>
+    <tr>
+      <td>Currency Unit:</td>
+      <td><input type="text" name="COSTS_UNIT" value="<?=$esphomepm_costs_unit?>" placeholder="GBP"></td>
+    </tr>
+  </table>
+  
+  <div style="text-align: center; margin-top: 20px;">
+    <input type="submit" value="Apply">
+    <button type="button" onclick="done()">Done</button>
   </div>
+</form>
 
-  <?php elseif ($tab == 'monitoring' && $showMonitorTab): ?>
-  <div class="content">
-    <div class="section-header"><i class="fa fa-bolt"></i><span>Current Readings</span></div>
-    <table class="settings">
-      <tr>
-        <td>Current Power:</td>
-        <td><span id="currentPower" class="highlight-value">--</span> W</td>
-        <td>Daily Cost:</td>
-        <td><span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></td>
-      </tr>
-      <tr>
-        <td>Daily Energy:</td>
-        <td><span id="dailyEnergy">--</span> kWh</td>
-        <td>Monthly Cost (est.):</td>
-        <td><span id="monthlyCost" class="highlight-value">--</span> <span id="costUnitMonthly"><?=$esphomepm_costs_unit?></span></td>
-      </tr>
-    </table>
-    
-    <div class="section-header"><i class="fa fa-area-chart"></i><span>Power Graph</span></div>
-    <div id="powerGraphContainer">
-      <canvas id="powerGraph"></canvas>
-    </div>
-  </div>
+<?php if (empty($esphomepm_device_ip)): ?>
+<div style="background-color: rgba(0, 144, 202, 0.1); border-left: 4px solid #0090CA; padding: 15px; margin: 20px 0; color: #ccc;">
+  <i class="fa fa-info-circle"></i> Please configure your ESPHome device IP address and click Apply to start monitoring.
+</div>
+<?php endif; ?>
 
-  <?php elseif ($tab == 'history' && $showMonitorTab): ?>
-  <div class="content">
-    <div class="section-header"><i class="fa fa-history"></i><span>Historical Data</span></div>
-    
-    <table class="history-table">
-      <thead>
-        <tr>
-          <th>Month</th>
-          <th>Energy (kWh)</th>
-          <th>Cost</th>
-        </tr>
-      </thead>
-      <tbody id="monthlyHistory">
-        <tr>
-          <td colspan="3" class="text-center">Loading historical data...</td>
-        </tr>
-      </tbody>
-    </table>
-    
-    <div class="section-header"><i class="fa fa-calculator"></i><span>Total Statistics</span></div>
-    <table class="settings">
-      <tr>
-        <td>Total Energy:</td>
-        <td><span id="totalEnergy" class="highlight-value">--</span> kWh</td>
-        <td>Total Cost:</td>
-        <td><span id="totalCost" class="highlight-value">--</span> <span id="historyCostUnit"><?=$esphomepm_costs_unit?></span></td>
-      </tr>
-    </table>
+<?php elseif ($tab == 'monitoring' && $showMonitorTab): ?>
+<!-- Monitoring Tab Content -->
+<table class="settings">
+  <tr>
+    <td>Current Power:</td>
+    <td><span id="currentPower" class="highlight-value">--</span> W</td>
+    <td>Daily Cost:</td>
+    <td><span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></td>
+  </tr>
+  <tr>
+    <td>Daily Energy:</td>
+    <td><span id="dailyEnergy">--</span> kWh</td>
+    <td>Monthly Cost (est.):</td>
+    <td><span id="monthlyCost" class="highlight-value">--</span> <span id="costUnitMonthly"><?=$esphomepm_costs_unit?></span></td>
+  </tr>
+</table>
+
+<div style="margin-top: 20px;">
+  <h4>Power Graph</h4>
+  <div id="powerGraphContainer" style="height: 300px;">
+    <canvas id="powerGraph"></canvas>
   </div>
-  <?php endif; ?>
 </div>
 
+<?php elseif ($tab == 'history' && $showMonitorTab): ?>
+<!-- History Tab Content -->
+<h4>Historical Data</h4>
+<table class="tablesorter">
+  <thead>
+    <tr>
+      <th>Month</th>
+      <th>Energy (kWh)</th>
+      <th>Cost (<?=$esphomepm_costs_unit?>)</th>
+    </tr>
+  </thead>
+  <tbody id="monthlyHistory">
+    <tr>
+      <td colspan="3">Loading historical data...</td>
+    </tr>
+  </tbody>
+</table>
+
+<h4>Total Statistics</h4>
+<table class="settings">
+  <tr>
+    <td>Total Energy:</td>
+    <td><span id="totalEnergy" class="highlight-value">--</span> kWh</td>
+  </tr>
+  <tr>
+    <td>Total Cost:</td>
+    <td><span id="totalCost" class="highlight-value">--</span> <?=$esphomepm_costs_unit?></td>
+  </tr>
+  <tr>
+    <td>Monitoring Since:</td>
+    <td><span id="monitoringSince">--</span></td>
+  </tr>
+</table>
+
+<?php endif; ?>
+
 <script>
-function resetForm(form) {
-  form.DEVICE_NAME.value = "Unraid Server PM";
-  form.DEVICE_IP.value = "";
-  form.COSTS_PRICE.value = "0.27";
-  form.COSTS_UNIT.value = "GBP";
-}
-
-function done() {
-  window.location.href = '/Main';
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-  const tab = '<?=$tab?>';
-  if (tab === 'monitoring' || tab === 'history') {
-    updateDeviceStatus();
-    setInterval(updateDeviceStatus, 10000);
-  }
-});
-
+// Basic functions to update data
 function updateDeviceStatus() {
   const deviceIP = '<?=$esphomepm_device_ip?>';
   if (!deviceIP) return;
@@ -475,40 +166,34 @@ function updateDeviceStatus() {
         return;
       }
       
-      const tab = '<?=$tab?>';
-      if (tab === 'monitoring') {
-        // Update current readings
-        if (data.power) document.getElementById('currentPower').textContent = parseFloat(data.power).toFixed(1);
-        if (data.daily_energy) document.getElementById('dailyEnergy').textContent = parseFloat(data.daily_energy).toFixed(2);
-        if (data.daily_cost) document.getElementById('dailyCost').textContent = parseFloat(data.daily_cost).toFixed(2);
-        
-        // Calculate and display monthly cost (estimated from daily cost)
-        if (data.current_month_cost_total) {
-          const monthlyCostElement = document.getElementById('monthlyCost');
-          if (monthlyCostElement) {
-            monthlyCostElement.textContent = parseFloat(data.current_month_cost_total).toFixed(2);
-          }
-        } else if (data.daily_cost) {
-          const monthlyCostElement = document.getElementById('monthlyCost');
-          if (monthlyCostElement) {
-            const monthlyCost = parseFloat(data.daily_cost) * 30; // Approximate monthly cost
-            monthlyCostElement.textContent = monthlyCost.toFixed(2);
-          }
-        }
-      } else if (tab === 'history') {
-        // Update total statistics
-        if (data.overall_total_energy) document.getElementById('totalEnergy').textContent = parseFloat(data.overall_total_energy).toFixed(2);
-        if (data.overall_total_cost) document.getElementById('totalCost').textContent = parseFloat(data.overall_total_cost).toFixed(2);
-        
-        // Update monthly history table
-        if (data.historical_months && Object.keys(data.historical_months).length > 0) {
-          updateMonthlyHistoryTable(data.historical_months, data.current_month);
-        } else {
-          document.getElementById('monthlyHistory').innerHTML = '<tr><td colspan="3" class="text-center">No historical data available</td></tr>';
-        }
+      // Update current readings
+      document.getElementById('currentPower').textContent = data.power;
+      document.getElementById('dailyEnergy').textContent = data.today_energy.toFixed(2);
+      document.getElementById('dailyCost').textContent = data.daily_cost.toFixed(2);
+      document.getElementById('monthlyCost').textContent = data.monthly_cost_est.toFixed(2);
+      
+      // Update history data if available
+      if (data.historical_data_available) {
+        updateHistoricalData(data);
       }
     })
-    .catch(error => console.error('Fetch error:', error));
+    .catch(error => {
+      console.error('Fetch error:', error);
+    });
+}
+
+function updateHistoricalData(data) {
+  // Update total statistics
+  if (document.getElementById('totalEnergy')) {
+    document.getElementById('totalEnergy').textContent = data.overall_total_energy.toFixed(2);
+    document.getElementById('totalCost').textContent = data.overall_total_cost.toFixed(2);
+    document.getElementById('monitoringSince').textContent = data.monitoring_start_date;
+  }
+  
+  // Update monthly history table
+  if (document.getElementById('monthlyHistory')) {
+    updateMonthlyHistoryTable(data.historical_months, data.current_month);
+  }
 }
 
 function updateMonthlyHistoryTable(historicalMonths, currentMonth) {
@@ -560,157 +245,28 @@ function updateMonthlyHistoryTable(historicalMonths, currentMonth) {
 }
 
 function getMonthNameFromYearMonth(yearMonth) {
-  if (!yearMonth || typeof yearMonth !== 'string') return 'Unknown';
+  if (!yearMonth) return 'Unknown';
   
-  const [year, month] = yearMonth.split('-');
-  const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 
+                 'July', 'August', 'September', 'October', 'November', 'December'];
   
-  const monthIndex = parseInt(month) - 1;
-  if (isNaN(monthIndex) || monthIndex < 0 || monthIndex > 11) return 'Unknown';
+  const parts = yearMonth.split('-');
+  if (parts.length !== 2) return yearMonth;
   
-  return `${monthNames[monthIndex]} ${year}`;
+  const year = parts[0];
+  const month = parseInt(parts[1], 10);
+  
+  if (isNaN(month) || month < 1 || month > 12) return yearMonth;
+  
+  return `${months[month-1]} ${year}`;
 }
-</script>
 
-<?php if ($tab === 'monitoring'): ?>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
-<script>
-let powerChart;
-
+// Initialize
 document.addEventListener('DOMContentLoaded', function() {
-  const ctx = document.getElementById('powerGraph').getContext('2d');
-  
-  // Set chart background to match Unraid dark theme
-  Chart.defaults.color = '#ccc';
-  Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
-  
-  powerChart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        label: 'Power (W)',
-        data: [],
-        borderColor: '#F57C00',
-        backgroundColor: 'rgba(245, 124, 0, 0.2)',
-        borderWidth: 2,
-        pointRadius: 3,
-        pointBackgroundColor: '#F57C00',
-        tension: 0.3,
-        fill: true
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      animation: {
-        duration: 500
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          grid: {
-            color: 'rgba(255, 255, 255, 0.05)'
-          },
-          ticks: {
-            color: '#ccc',
-            font: {
-              size: 11
-            }
-          },
-          title: {
-            display: true,
-            text: 'Watts',
-            color: '#ccc',
-            font: {
-              size: 12
-            }
-          }
-        },
-        x: {
-          grid: {
-            color: 'rgba(255, 255, 255, 0.05)'
-          },
-          ticks: {
-            color: '#ccc',
-            font: {
-              size: 11
-            },
-            maxRotation: 0,
-            maxTicksLimit: 10
-          },
-          title: {
-            display: true,
-            text: 'Time',
-            color: '#ccc',
-            font: {
-              size: 12
-            }
-          }
-        }
-      },
-      plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: {
-            color: '#ccc',
-            font: {
-              size: 12
-            },
-            boxWidth: 15,
-            padding: 10
-          }
-        },
-        tooltip: {
-          backgroundColor: 'rgba(0, 0, 0, 0.7)',
-          titleFont: {
-            size: 12
-          },
-          bodyFont: {
-            size: 12
-          },
-          padding: 10,
-          displayColors: false
-        }
-      }
-    }
-  });
-  
-  // Initial graph population
-  updateGraph();
-  
-  // Update graph every 5 seconds
-  setInterval(updateGraph, 5000);
+  const tab = '<?=$tab?>';
+  if (tab === 'monitoring' || tab === 'history') {
+    updateDeviceStatus();
+    setInterval(updateDeviceStatus, 10000);
+  }
 });
-
-function updateGraph() {
-  fetch('/plugins/esphomepm/status.php')
-    .then(response => response.json())
-    .then(data => {
-      if (data.power) {
-        const now = new Date();
-        const timeLabel = now.getHours().toString().padStart(2, '0') + ':' + 
-                         now.getMinutes().toString().padStart(2, '0');
-        
-        powerChart.data.labels.push(timeLabel);
-        powerChart.data.datasets[0].data.push(parseFloat(data.power));
-        
-        // Keep last 30 data points (2.5 minutes at 5-second intervals)
-        if (powerChart.data.labels.length > 30) {
-          powerChart.data.labels.shift();
-          powerChart.data.datasets[0].data.shift();
-        }
-        
-        // Dynamically adjust Y axis based on max value
-        const maxValue = Math.max(...powerChart.data.datasets[0].data);
-        const suggestedMax = Math.ceil(maxValue * 1.2); // Add 20% headroom
-        
-        powerChart.options.scales.y.suggestedMax = suggestedMax;
-        powerChart.update();
-      }
-    })
-    .catch(error => console.error('Graph update error:', error));
-}
 </script>
-<?php endif; ?>
