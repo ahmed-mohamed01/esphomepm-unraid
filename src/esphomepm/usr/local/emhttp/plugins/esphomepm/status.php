@@ -151,6 +151,13 @@ $response_data = [
         'total_cost_completed_days' => round($current_month_cost_completed_days, 2)
     ],
     
+    // Debug information
+    'debug_info' => [
+        'has_historical_data' => $historical_data_available,
+        'current_month_from_file' => isset($historical_data['current_month']) ? $historical_data['current_month'] : null,
+        'timestamp' => date('Y-m-d H:i:s')
+    ],
+    
     // Historical and overall data
     'historical_data_available' => $historical_data_available,
     'historical_months' => $historical_months,
