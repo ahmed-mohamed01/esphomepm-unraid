@@ -63,9 +63,9 @@ function esphomepm_load_config() {
             $config['COSTS_PRICE'] = $config['costs_price'];
             $config['COSTS_UNIT'] = $config['costs_unit'];
             
-            // Optional: allow user to specify sensor paths, default to 'power' and 'total_daily_energy'
+            // Optional: allow user to specify sensor paths, default to 'power' and 'daily_energy'
             $config['POWER_SENSOR_PATH'] = !empty($raw_cfg['POWER_SENSOR_PATH']) ? $raw_cfg['POWER_SENSOR_PATH'] : 'power';
-            $config['DAILY_ENERGY_SENSOR_PATH'] = !empty($raw_cfg['DAILY_ENERGY_SENSOR_PATH']) ? $raw_cfg['DAILY_ENERGY_SENSOR_PATH'] : 'total_daily_energy';
+            $config['DAILY_ENERGY_SENSOR_PATH'] = !empty($raw_cfg['DAILY_ENERGY_SENSOR_PATH']) ? $raw_cfg['DAILY_ENERGY_SENSOR_PATH'] : 'daily_energy';
         }
     }
     return $config;

@@ -16,7 +16,7 @@ $device_ip = $config['DEVICE_IP'] ?? "";
 $costs_price = $config['COSTS_PRICE'] ?? 0.0;
 $costs_unit = $config['COSTS_UNIT'] ?? "";
 $power_sensor_path = $config['POWER_SENSOR_PATH'] ?? 'power';
-$daily_energy_sensor_path = $config['DAILY_ENERGY_SENSOR_PATH'] ?? 'total_daily_energy';
+$daily_energy_sensor_path = $config['DAILY_ENERGY_SENSOR_PATH'] ?? 'daily_energy';
 
 // Function to get sensor value with retry and error handling - wrapper around the common function
 function getSensorValue($sensor, $device_ip, $timeout = 2) {
