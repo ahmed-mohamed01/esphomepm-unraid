@@ -17,13 +17,13 @@ function initialize_data_file_if_needed() {
 function update_power_consumption_data() {
     $config = esphomepm_load_config();
     if (empty($config['DEVICE_IP']) || !isset($config['COSTS_PRICE'])) {
-        error_log("ESPHomePM: update_power_consumption_data - Missing DEVICE_IP or COSTS_PRICE in configuration.");
+        esphomepm_log_error("update_power_consumption_data - Missing DEVICE_IP or COSTS_PRICE in configuration.", 'ERROR', 'data_handler');
         return false;
     }
 
     $power_data = initialize_data_file_if_needed();
     if ($power_data === null) {
-        error_log("ESPHomePM: Failed to load or initialize power data. Aborting update.");
+        esphomepm_log_error("Failed to load or initialize power data. Aborting update.", 'ERROR', 'data_handler');
         return false;
     }
 
@@ -31,7 +31,7 @@ function update_power_consumption_data() {
     $e_completed_day = esphomepm_fetch_sensor_data($config['DEVICE_IP'], $config['DAILY_ENERGY_SENSOR_PATH']);
 
     if ($e_completed_day === null) {
-        error_log("ESPHomePM: Could not fetch '{$config['DAILY_ENERGY_SENSOR_PATH']}' from ESPHome device {$config['DEVICE_IP']}. Daily update skipped.");
+        esphomepm_log_error("Could not fetch '{$config['DAILY_ENERGY_SENSOR_PATH']}' from ESPHome device {$config['DEVICE_IP']}. Daily update skipped.", 'WARNING', 'data_handler');
         // Decide if we should still save (to ensure month rollover happens if date changed) or just exit.
         // For now, let's try to process month rollover if applicable, even if sensor read fails.
     } else {
@@ -118,13 +118,41 @@ function update_power_consumption_data() {
 
 // --- Main execution block (if script is called directly) ---
 if (basename(__FILE__) == basename($_SERVER["SCRIPT_FILENAME"])) {
+    // Validate if this is running at the expected time
+    esphomepm_validate_cron_time();
+    
     // This allows the script to be run directly via cron or command line
     $result = update_power_consumption_data();
+    
+    // Get the data for logging
+    $log_data = [];
+    $config = esphomepm_load_config();
+    $power_data = esphomepm_load_json_data(ESPHOMPM_DATA_FILE);
+    
+    if ($power_data !== null) {
+        // Get yesterday's data if available
+        $yesterday = date('Y-m-d', strtotime('-1 day'));
+        if (isset($power_data['current_month']['daily_records'][$yesterday])) {
+            $log_data['yesterday_energy'] = round($power_data['current_month']['daily_records'][$yesterday]['energy_kwh'], 3);
+            $log_data['yesterday_cost'] = round($power_data['current_month']['daily_records'][$yesterday]['cost'], 2);
+        }
+        
+        // Current month and total data
+        $log_data['month_energy'] = round($power_data['current_month']['total_energy_kwh_completed_days'], 3);
+        $log_data['month_cost'] = round($power_data['current_month']['total_cost_completed_days'], 2);
+        $log_data['total_energy'] = round($power_data['overall_totals']['total_energy_kwh_all_time'], 3);
+        $log_data['total_cost'] = round($power_data['overall_totals']['total_cost_all_time'], 2);
+        $log_data['cost_unit'] = $config['COSTS_UNIT'];
+        
+        // Log the cron execution details
+        esphomepm_log_cron_execution($log_data);
+    }
+    
     if ($result) {
-        error_log("ESPHomePM: data-handler.php executed successfully at " . date('Y-m-d H:i:s'));
+        esphomepm_log_error("data-handler.php executed successfully", 'INFO', 'cron_job');
         exit(0); // Success exit code
     } else {
-        error_log("ESPHomePM: data-handler.php execution failed at " . date('Y-m-d H:i:s'));
+        esphomepm_log_error("data-handler.php execution failed", 'ERROR', 'cron_job');
         exit(1); // Error exit code
     }
 }

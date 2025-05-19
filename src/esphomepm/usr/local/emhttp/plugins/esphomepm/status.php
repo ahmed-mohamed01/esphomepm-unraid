@@ -26,6 +26,7 @@ function getSensorValue($sensor, $device_ip, $timeout = 2) {
 // Handle graph point request
 if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
     if (empty($device_ip)) {
+        esphomepm_log_error("Graph point request with missing device IP", 'WARNING', 'status');
         echo json_encode(['power' => 0, 'error' => 'ESPHome Device IP missing']);
         exit;
     }

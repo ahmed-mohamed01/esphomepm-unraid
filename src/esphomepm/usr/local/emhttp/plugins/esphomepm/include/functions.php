@@ -9,8 +9,21 @@
 define('ESPHOMPM_PLUGIN_NAME', 'esphomepm');
 define('ESPHOMPM_CONFIG_FILE', '/boot/config/plugins/' . ESPHOMPM_PLUGIN_NAME . '/' . ESPHOMPM_PLUGIN_NAME . '.cfg');
 define('ESPHOMPM_DATA_FILE', '/boot/config/plugins/' . ESPHOMPM_PLUGIN_NAME . '/esphomepm_data.json');
+define('ESPHOMPM_LOG_FILE', '/boot/config/plugins/' . ESPHOMPM_PLUGIN_NAME . '/esphomepm_cron.log');
 define('ESPHOMPM_DATA_FORMAT_VERSION', '1.0');
 define('ESPHOMPM_MAX_HISTORICAL_MONTHS', 13); // Keep current year + last year approx
+
+/**
+ * Standardized error logging for ESPHomePM plugin
+ * 
+ * @param string $message The message to log
+ * @param string $level The log level (INFO, WARNING, ERROR, CRITICAL)
+ * @param string $component The component generating the log
+ */
+function esphomepm_log_error($message, $level = 'ERROR', $component = 'general') {
+    $timestamp = date('Y-m-d H:i:s');
+    error_log("ESPHomePM [$level] [$component]: $message");
+}
 
 /**
  * Set up error logging for ESPHomePM plugin
@@ -70,12 +83,12 @@ function esphomepm_load_json_data($file_path) {
     }
     $json_content = file_get_contents($file_path);
     if ($json_content === false) {
-        error_log("ESPHomePM: Failed to read data file: $file_path");
+        esphomepm_log_error("Failed to read data file: $file_path", 'ERROR', 'json_data');
         return null;
     }
     $data = json_decode($json_content, true);
     if (json_last_error() !== JSON_ERROR_NONE) {
-        error_log("ESPHomePM: JSON decode error for $file_path: " . json_last_error_msg());
+        esphomepm_log_error("JSON decode error for $file_path: " . json_last_error_msg(), 'ERROR', 'json_data');
         return null;
     }
     return $data;
@@ -91,11 +104,11 @@ function esphomepm_load_json_data($file_path) {
 function esphomepm_save_json_data($file_path, $data) {
     $json_output = json_encode($data, JSON_PRETTY_PRINT);
     if ($json_output === false) {
-        error_log("ESPHomePM: JSON encode error: " . json_last_error_msg());
+        esphomepm_log_error("JSON encode error: " . json_last_error_msg(), 'ERROR', 'json_data');
         return false;
     }
     if (file_put_contents($file_path, $json_output) === false) {
-        error_log("ESPHomePM: Failed to write data file: $file_path");
+        esphomepm_log_error("Failed to write data file: $file_path", 'ERROR', 'json_data');
         return false;
     }
     return true;
@@ -111,7 +124,7 @@ function esphomepm_save_json_data($file_path, $data) {
  */
 function esphomepm_fetch_sensor_data($device_ip, $sensor_path, $timeout = 5, $return_full_response = false) {
     if (empty($device_ip) || empty($sensor_path)) {
-        error_log("ESPHomePM: fetch_sensor_data - Empty device IP or sensor path.");
+        esphomepm_log_error("fetch_sensor_data - Empty device IP or sensor path.", 'ERROR', 'sensor_data');
         return $return_full_response ? ['value' => 0, 'error' => 'Device IP or sensor path not configured'] : null;
     }
     
@@ -133,7 +146,7 @@ function esphomepm_fetch_sensor_data($device_ip, $sensor_path, $timeout = 5, $re
     $curl_error_message = curl_error($ch);
 
     if ($curl_errno) {
-        error_log("ESPHomePM: cURL Error for $url: [$curl_errno] $curl_error_message");
+        esphomepm_log_error("cURL Error for $url: [$curl_errno] $curl_error_message", 'ERROR', 'sensor_data');
         curl_close($ch);
         return $return_full_response ? ['value' => 0, 'error' => "cURL error $curl_errno ($curl_error_message)"] : null;
     }
@@ -164,10 +177,10 @@ function esphomepm_fetch_sensor_data($device_ip, $sensor_path, $timeout = 5, $re
                 (float)trim($response_body);
         }
         
-        error_log("ESPHomePM: Invalid response format from $url. Response: $response_body");
+        esphomepm_log_error("Invalid response format from $url. Response: $response_body", 'ERROR', 'sensor_data');
         return $return_full_response ? ['value' => 0, 'error' => "Invalid response format"] : null;
     } else {
-        error_log("ESPHomePM: HTTP Error $http_code from $url. Response: $response_body");
+        esphomepm_log_error("HTTP Error $http_code from $url. Response: $response_body", 'ERROR', 'sensor_data');
         return $return_full_response ? ['value' => 0, 'error' => "HTTP error $http_code"] : null;
     }
 }
@@ -177,7 +190,12 @@ function esphomepm_fetch_sensor_data($device_ip, $sensor_path, $timeout = 5, $re
  * 
  * @return array|null The initialized data structure or null on critical failure
  */
-function esphomepm_initialize_data_file() {
+function esphomepm_initialize_data_file($recursion_depth = 0) {
+    // Add recursion depth limit
+    if ($recursion_depth > 2) {
+        esphomepm_log_error("Maximum recursion depth reached when initializing data file", 'CRITICAL', 'data_file');
+        return null;
+    }
     if (!file_exists(ESPHOMPM_DATA_FILE)) {
         $default_data = [
             'data_format_version' => ESPHOMPM_DATA_FORMAT_VERSION,
@@ -195,7 +213,7 @@ function esphomepm_initialize_data_file() {
             ]
         ];
         if (!esphomepm_save_json_data(ESPHOMPM_DATA_FILE, $default_data)) {
-            error_log("ESPHomePM: CRITICAL - Failed to initialize data file " . ESPHOMPM_DATA_FILE);
+            esphomepm_log_error("Failed to initialize data file " . ESPHOMPM_DATA_FILE, 'CRITICAL', 'data_file');
             return null;
         }
         return $default_data;
@@ -203,16 +221,16 @@ function esphomepm_initialize_data_file() {
     
     $data = esphomepm_load_json_data(ESPHOMPM_DATA_FILE);
     if ($data === null) { // File exists but is unreadable/corrupt
-         error_log("ESPHomePM: CRITICAL - Data file " . ESPHOMPM_DATA_FILE . " is corrupt or unreadable. Attempting to backup and re-initialize.");
+         esphomepm_log_error("Data file " . ESPHOMPM_DATA_FILE . " is corrupt or unreadable. Attempting to backup and re-initialize.", 'CRITICAL', 'data_file');
          // Basic backup
          @copy(ESPHOMPM_DATA_FILE, ESPHOMPM_DATA_FILE . '.' . time() . '.corrupt.bak');
-         // Recursive call to create a new one
-         return esphomepm_initialize_data_file();
+         // Recursive call to create a new one with incremented depth
+         return esphomepm_initialize_data_file($recursion_depth + 1);
     }
 
     // Version check and structure validation
     if (!isset($data['data_format_version']) || $data['data_format_version'] !== ESPHOMPM_DATA_FORMAT_VERSION) {
-        error_log("ESPHomePM: Data file version mismatch or missing. Expected: " . ESPHOMPM_DATA_FORMAT_VERSION . ". Found: " . ($data['data_format_version'] ?? 'N/A'));
+        esphomepm_log_error("Data file version mismatch or missing. Expected: " . ESPHOMPM_DATA_FORMAT_VERSION . ". Found: " . ($data['data_format_version'] ?? 'N/A'), 'WARNING', 'data_file');
         // Add missing top-level keys if they don't exist for basic compatibility
         if (!isset($data['current_month'])) $data['current_month'] = ['month_year' => date('Y-m'), 'daily_records' => [], 'total_energy_kwh_completed_days' => 0.0, 'total_cost_completed_days' => 0.0];
         if (!isset($data['historical_months'])) $data['historical_months'] = [];
@@ -230,4 +248,86 @@ function esphomepm_set_json_headers() {
     header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
     header('Cache-Control: post-check=0, pre-check=0', false);
     header('Pragma: no-cache');
+}
+
+/**
+ * Log cron job execution details to the cron log file
+ * 
+ * @param array $data The data to log (previous day's energy, current totals, etc.)
+ * @return bool True on success, false on failure
+ */
+function esphomepm_log_cron_execution($data) {
+    $timestamp = date('Y-m-d H:i:s');
+    $date = date('Y-m-d');
+    
+    // Format the log entry
+    $log_entry = "[$timestamp] Daily Update\n";
+    $log_entry .= "Date: $date\n";
+    
+    if (isset($data['yesterday_energy'])) {
+        $log_entry .= "Yesterday's Energy: {$data['yesterday_energy']} kWh\n";
+    } else {
+        $log_entry .= "Yesterday's Energy: Not available\n";
+    }
+    
+    if (isset($data['yesterday_cost'])) {
+        $log_entry .= "Yesterday's Cost: {$data['yesterday_cost']} {$data['cost_unit']}\n";
+    } else {
+        $log_entry .= "Yesterday's Cost: Not available\n";
+    }
+    
+    if (isset($data['month_energy'])) {
+        $log_entry .= "Current Month Energy: {$data['month_energy']} kWh\n";
+    }
+    
+    if (isset($data['month_cost'])) {
+        $log_entry .= "Current Month Cost: {$data['month_cost']} {$data['cost_unit']}\n";
+    }
+    
+    if (isset($data['total_energy'])) {
+        $log_entry .= "Total Energy: {$data['total_energy']} kWh\n";
+    }
+    
+    if (isset($data['total_cost'])) {
+        $log_entry .= "Total Cost: {$data['total_cost']} {$data['cost_unit']}\n";
+    }
+    
+    $log_entry .= "-----------------------------------\n";
+    
+    // Ensure the directory exists
+    $dir = dirname(ESPHOMPM_LOG_FILE);
+    if (!is_dir($dir)) {
+        if (!mkdir($dir, 0755, true)) {
+            esphomepm_log_error("Failed to create directory for cron log: $dir", 'ERROR', 'cron_log');
+            return false;
+        }
+    }
+    
+    // Append to the log file
+    if (file_put_contents(ESPHOMPM_LOG_FILE, $log_entry, FILE_APPEND) === false) {
+        esphomepm_log_error("Failed to write to cron log file: " . ESPHOMPM_LOG_FILE, 'ERROR', 'cron_log');
+        return false;
+    }
+    
+    return true;
+}
+
+/**
+ * Validate if the current time is appropriate for the cron job to run
+ * 
+ * @return bool True if it's an appropriate time, false otherwise
+ */
+function esphomepm_validate_cron_time() {
+    $current_hour = (int)date('H');
+    $current_minute = (int)date('i');
+    
+    // Expected time is around 23:59
+    $is_expected_time = ($current_hour == 23 && $current_minute >= 55) || 
+                       ($current_hour == 0 && $current_minute <= 5);
+    
+    if (!$is_expected_time) {
+        esphomepm_log_error("data-handler.php executed at unexpected time: " . date('Y-m-d H:i:s'), 'WARNING', 'cron_job');
+    }
+    
+    return $is_expected_time;
 }
