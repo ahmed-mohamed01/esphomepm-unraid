@@ -94,61 +94,70 @@ if (($tab == 'monitoring' || $tab == 'history') && !$showMonitorTab) {
 
 <?php elseif ($tab == 'monitoring' && $showMonitorTab): ?>
 <!-- Monitoring Tab Content -->
-<table class="settings">
-  <tr>
-    <td>Current Power:</td>
-    <td><span id="currentPower" class="highlight-value">--</span> W</td>
-    <td>Daily Cost:</td>
-    <td><span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></td>
-  </tr>
-  <tr>
-    <td>Daily Energy:</td>
-    <td><span id="dailyEnergy">--</span> kWh</td>
-    <td>Monthly Cost (est.):</td>
-    <td><span id="monthlyCost" class="highlight-value">--</span> <span id="costUnitMonthly"><?=$esphomepm_costs_unit?></span></td>
-  </tr>
-</table>
+<div style="display: grid; grid-template-columns: 25% 25% 25% 25%; margin-bottom: 20px;">
+  <div>
+    <div>Current Power:</div>
+    <div><span id="currentPower" class="highlight-value">--</span> W</div>
+  </div>
+  <div>
+    <div>Daily Energy:</div>
+    <div><span id="dailyEnergy">--</span> kWh</div>
+  </div>
+  <div>
+    <div>Daily Cost:</div>
+    <div><span id="dailyCost" class="highlight-value">--</span> <span id="costUnit"><?=$esphomepm_costs_unit?></span></div>
+  </div>
+  <div>
+    <div>Monthly Cost (est.):</div>
+    <div><span id="monthlyCost" class="highlight-value">--</span> <span id="costUnitMonthly"><?=$esphomepm_costs_unit?></span></div>
+  </div>
+</div>
 
 <div style="margin-top: 20px;">
   <h4>Power Graph</h4>
-  <div id="powerGraphContainer" style="height: 300px;">
+  <div id="powerGraphContainer" style="height: 300px; width: 100%; position: relative;">
     <canvas id="powerGraph"></canvas>
   </div>
 </div>
 
+<!-- Include Chart.js library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+
 <?php elseif ($tab == 'history' && $showMonitorTab): ?>
 <!-- History Tab Content -->
 <h4>Historical Data</h4>
-<table class="tablesorter">
-  <thead>
-    <tr>
-      <th>Month</th>
-      <th>Energy (kWh)</th>
-      <th>Cost (<?=$esphomepm_costs_unit?>)</th>
-    </tr>
-  </thead>
-  <tbody id="monthlyHistory">
-    <tr>
-      <td colspan="3">Loading historical data...</td>
-    </tr>
-  </tbody>
-</table>
+<div style="overflow-x: auto;">
+  <table class="tablesorter" style="width: 100%;">
+    <thead>
+      <tr>
+        <th style="width: 33%;">Month</th>
+        <th style="width: 33%;">Energy (kWh)</th>
+        <th style="width: 33%;">Cost (<?=$esphomepm_costs_unit?>)</th>
+      </tr>
+    </thead>
+    <tbody id="monthlyHistory">
+      <tr>
+        <td colspan="3">Loading historical data...</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
 <h4>Total Statistics</h4>
-<table class="settings">
-  <tr>
-    <td>Total Energy:</td>
-    <td><span id="totalEnergy" class="highlight-value">--</span> kWh</td>
-  </tr>
-  <tr>
-    <td>Total Cost:</td>
-    <td><span id="totalCost" class="highlight-value">--</span> <?=$esphomepm_costs_unit?></td>
-  </tr>
-  <tr>
-    <td>Monitoring Since:</td>
-    <td><span id="monitoringSince">--</span></td>
-  </tr>
-</table>
+<div style="display: grid; grid-template-columns: 50% 50%; margin-top: 20px;">
+  <div>
+    <div>Total Energy:</div>
+    <div><span id="totalEnergy" class="highlight-value">--</span> kWh</div>
+  </div>
+  <div>
+    <div>Total Cost:</div>
+    <div><span id="totalCost" class="highlight-value">--</span> <?=$esphomepm_costs_unit?></div>
+  </div>
+  <div style="grid-column: span 2; margin-top: 10px;">
+    <div>Monitoring Since:</div>
+    <div><span id="monitoringSince">--</span></div>
+  </div>
+</div>
 
 <?php endif; ?>
 
@@ -171,6 +180,11 @@ function updateDeviceStatus() {
       document.getElementById('dailyEnergy').textContent = data.today_energy.toFixed(2);
       document.getElementById('dailyCost').textContent = data.daily_cost.toFixed(2);
       document.getElementById('monthlyCost').textContent = data.monthly_cost_est.toFixed(2);
+      
+      // Update power graph if on monitoring tab
+      if (window.powerChart) {
+        updatePowerGraph(data.power);
+      }
       
       // Update history data if available
       if (data.historical_data_available) {
@@ -261,9 +275,71 @@ function getMonthNameFromYearMonth(yearMonth) {
   return `${months[month-1]} ${year}`;
 }
 
+// Initialize power graph
+function initPowerGraph() {
+  if (!document.getElementById('powerGraph')) return;
+  
+  const ctx = document.getElementById('powerGraph').getContext('2d');
+  window.powerChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: Array(30).fill('').map((_, i) => `-${29-i}s`),
+      datasets: [{
+        label: 'Power (W)',
+        data: Array(30).fill(null),
+        borderColor: '#F57C00',
+        backgroundColor: 'rgba(245, 124, 0, 0.1)',
+        borderWidth: 2,
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          grid: {
+            color: 'rgba(255, 255, 255, 0.1)'
+          }
+        },
+        x: {
+          grid: {
+            color: 'rgba(255, 255, 255, 0.1)'
+          }
+        }
+      },
+      animation: {
+        duration: 500
+      },
+      plugins: {
+        legend: {
+          display: false
+        }
+      }
+    }
+  });
+}
+
+// Update power graph with new data
+function updatePowerGraph(power) {
+  if (!window.powerChart) return;
+  
+  const data = window.powerChart.data.datasets[0].data;
+  data.push(power);
+  if (data.length > 30) data.shift();
+  
+  window.powerChart.update();
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', function() {
   const tab = '<?=$tab?>';
+  if (tab === 'monitoring') {
+    initPowerGraph();
+  }
+  
   if (tab === 'monitoring' || tab === 'history') {
     updateDeviceStatus();
     setInterval(updateDeviceStatus, 10000);
