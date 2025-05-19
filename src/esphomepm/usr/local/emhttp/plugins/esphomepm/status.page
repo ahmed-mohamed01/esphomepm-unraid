@@ -1,5 +1,5 @@
 Menu="Dashboard"
-Icon="esphomepm.png"
+Icon="icon-bolt"
 ---
 <style type="text/css">
     <?php

@@ -1,5 +1,5 @@
 Menu="Utilities"
-Icon="esphomepm.png"
+Icon="icon-bolt"
 Title="ESPHome Power Monitor"
 ---
 <?php
