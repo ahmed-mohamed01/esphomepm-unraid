@@ -337,17 +337,21 @@ table.settings td:nth-child(even) {
 }
 </style>
 
-<div id="title" style="margin-bottom: 10px;">
+<?if(function_exists('plugin_update_available') && $version = plugin_update_available('esphomepm')):?>
+<div id="title" class="nocontrol">_(ESPHome Power Monitor)_ &nbsp;<?=$version?></div>
+<?endif;?>
+
+<div id="title">
   <span class="left">
-    <input type="button" value="Settings" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
+    <input type="button" value="_(Settings)_" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
     <?php if ($showMonitorTab): ?>
-    <input type="button" value="Monitoring" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
-    <input type="button" value="History" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
+    <input type="button" value="_(Monitoring)_" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
+    <input type="button" value="_(History)_" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
     <?php endif; ?>
   </span>
 </div>
 
-<div style="clear:both; height:30px;"></div>
+<div class="clear"></div>
 
 <div class="plugin-container">
 
