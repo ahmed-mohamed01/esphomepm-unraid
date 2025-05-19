@@ -4,8 +4,8 @@ Icon="bolt"
 ---
 <style type="text/css">
     <?php
-        require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
-        $config = load_plugin_config();
+        require_once("/usr/local/emhttp/plugins/esphomepm/include/functions.php");
+        $config = esphomepm_load_config();
         $N = isset($N) ? $N : 0; // Define $N if not already defined
         $sortnr = $N+2;
     ?>

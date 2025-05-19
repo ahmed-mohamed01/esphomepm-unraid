@@ -3,11 +3,11 @@ Title="ESPHome Power Monitor"
 Icon="bolt"
 ---
 <?php
-// Include data handler
-require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
+// Include common functions
+require_once("/usr/local/emhttp/plugins/esphomepm/include/functions.php");
 
 // Load configuration
-$config = load_plugin_config();
+$config = esphomepm_load_config();
 
 // Get device settings
 $esphomepm_device_name = isset($config['DEVICE_NAME']) ? $config['DEVICE_NAME'] : "Unraid Server PM";
