@@ -1,173 +1,21 @@
 <?php
 // File: /usr/local/emhttp/plugins/esphomepm/data-handler.php
 
-// Enable error reporting for debugging (send to log file)
-ini_set('display_errors', 0);
-error_reporting(E_ALL);
-ini_set('log_errors', 1);
-ini_set('error_log', '/tmp/esphomepm_data_handler_error.log');
+// Include common functions
+require_once __DIR__ . '/include/functions.php';
 
-// Configuration and constants
-define('ESPHOMPM_PLUGIN_NAME', 'esphomepm');
-define('ESPHOMPM_CONFIG_FILE', '/boot/config/plugins/' . ESPHOMPM_PLUGIN_NAME . '/' . ESPHOMPM_PLUGIN_NAME . '.cfg');
-define('ESPHOMPM_DATA_FILE', '/boot/config/plugins/' . ESPHOMPM_PLUGIN_NAME . '/esphomepm_data.json');
-define('ESPHOMPM_DATA_FORMAT_VERSION', '1.0');
-define('ESPHOMPM_MAX_HISTORICAL_MONTHS', 13); // Keep current year + last year approx
-
-// --- Helper Functions ---
-
-function load_plugin_config() {
-    $config = [];
-    if (file_exists(ESPHOMPM_CONFIG_FILE)) {
-        $raw_cfg = parse_ini_file(ESPHOMPM_CONFIG_FILE);
-        if ($raw_cfg !== false) {
-            // Handle both uppercase and lowercase config keys for compatibility
-            // Device settings
-            $config['device_ip'] = isset($raw_cfg['DEVICE_IP']) ? $raw_cfg['DEVICE_IP'] : (isset($raw_cfg['device_ip']) ? $raw_cfg['device_ip'] : "");
-            $config['device_name'] = isset($raw_cfg['DEVICE_NAME']) ? $raw_cfg['DEVICE_NAME'] : (isset($raw_cfg['device_name']) ? $raw_cfg['device_name'] : "Unraid Server PM");
-            
-            // Cost settings
-            $config['costs_price'] = isset($raw_cfg['COSTS_PRICE']) ? (float)$raw_cfg['COSTS_PRICE'] : (isset($raw_cfg['costs_price']) ? (float)$raw_cfg['costs_price'] : 0.0);
-            $config['costs_unit'] = isset($raw_cfg['COSTS_UNIT']) ? $raw_cfg['COSTS_UNIT'] : (isset($raw_cfg['costs_unit']) ? $raw_cfg['costs_unit'] : "GBP");
-            
-            // For backward compatibility, also set uppercase keys
-            $config['DEVICE_IP'] = $config['device_ip'];
-            $config['DEVICE_NAME'] = $config['device_name'];
-            $config['COSTS_PRICE'] = $config['costs_price'];
-            $config['COSTS_UNIT'] = $config['costs_unit'];
-            
-            // Optional: allow user to specify sensor paths, default to 'power' and 'daily_energy'
-            $config['POWER_SENSOR_PATH'] = !empty($raw_cfg['POWER_SENSOR_PATH']) ? $raw_cfg['POWER_SENSOR_PATH'] : 'power';
-            $config['DAILY_ENERGY_SENSOR_PATH'] = !empty($raw_cfg['DAILY_ENERGY_SENSOR_PATH']) ? $raw_cfg['DAILY_ENERGY_SENSOR_PATH'] : 'daily_energy';
-        }
-    }
-    return $config;
-}
-
-function load_json_data($file_path) {
-    if (!file_exists($file_path)) {
-        return null;
-    }
-    $json_content = file_get_contents($file_path);
-    if ($json_content === false) {
-        error_log("ESPHomePM: Failed to read data file: $file_path");
-        return null;
-    }
-    $data = json_decode($json_content, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        error_log("ESPHomePM: JSON decode error for $file_path: " . json_last_error_msg());
-        return null; // Or handle by attempting to fix/backup/reinitialize
-    }
-    return $data;
-}
-
-function save_json_data($file_path, $data) {
-    $json_output = json_encode($data, JSON_PRETTY_PRINT);
-    if ($json_output === false) {
-        error_log("ESPHomePM: JSON encode error: " . json_last_error_msg());
-        return false;
-    }
-    if (file_put_contents($file_path, $json_output) === false) {
-        error_log("ESPHomePM: Failed to write data file: $file_path");
-        return false;
-    }
-    return true;
-}
-
-function fetch_esphome_sensor_data($device_ip, $sensor_path, $timeout = 5) {
-    if (empty($device_ip) || empty($sensor_path)) {
-        error_log("ESPHomePM: fetch_esphome_sensor_data - Empty device IP or sensor path.");
-        return null;
-    }
-    
-    $url = "http://$device_ip/sensor/$sensor_path";
-    $ch = curl_init();
-    curl_setopt_array($ch, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => $timeout,
-        CURLOPT_CONNECTTIMEOUT => $timeout > 1 ? $timeout -1 : 1,
-        CURLOPT_FAILONERROR => false, // We want to check HTTP code manually
-        CURLOPT_HEADER => false,
-        CURLOPT_USERAGENT => 'ESPHomePM-Unraid-Plugin/DataHandler'
-    ]);
-    
-    $response_body = curl_exec($ch);
-    $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curl_errno = curl_errno($ch);
-
-    if ($curl_errno) {
-        error_log("ESPHomePM: cURL Error for $url: [$curl_errno] " . curl_error($ch));
-        curl_close($ch);
-        return null;
-    }
-    curl_close($ch);
-
-    if ($http_code >= 200 && $http_code < 300) {
-        $sensor_data = json_decode($response_body, true);
-        if (json_last_error() === JSON_ERROR_NONE && isset($sensor_data['value'])) {
-            return (float)$sensor_data['value'];
-        } else {
-            error_log("ESPHomePM: Invalid JSON or missing 'value' in response from $url. Response: $response_body");
-            return null;
-        }
-    } else {
-        error_log("ESPHomePM: HTTP Error $http_code from $url. Response: $response_body");
-        return null;
-    }
-}
+// Set up error logging for this component
+esphomepm_setup_error_logging('data_handler');
 
 // --- Core Logic Functions ---
 
 function initialize_data_file_if_needed() {
-    if (!file_exists(ESPHOMPM_DATA_FILE)) {
-        $default_data = [
-            'data_format_version' => ESPHOMPM_DATA_FORMAT_VERSION,
-            'current_month' => [
-                'month_year' => date('Y-m'),
-                'daily_records' => [],
-                'total_energy_kwh_completed_days' => 0.0,
-                'total_cost_completed_days' => 0.0
-            ],
-            'historical_months' => [],
-            'overall_totals' => [
-                'monitoring_start_date' => date('Y-m-d'),
-                'total_energy_kwh_all_time' => 0.0,
-                'total_cost_all_time' => 0.0
-            ]
-        ];
-        if (!save_json_data(ESPHOMPM_DATA_FILE, $default_data)) {
-            error_log("ESPHomePM: CRITICAL - Failed to initialize data file " . ESPHOMPM_DATA_FILE);
-            return null;
-        }
-        return $default_data;
-    }
-    
-    $data = load_json_data(ESPHOMPM_DATA_FILE);
-    if ($data === null) { // File exists but is unreadable/corrupt
-         error_log("ESPHomePM: CRITICAL - Data file " . ESPHOMPM_DATA_FILE . " is corrupt or unreadable. Attempting to backup and re-initialize.");
-         // Basic backup, could be improved
-         @copy(ESPHOMPM_DATA_FILE, ESPHOMPM_DATA_FILE . '.' . time() . '.corrupt.bak');
-         return initialize_data_file_if_needed(); // Recursive call to create a new one
-    }
-
-    // Version check (simple for now, can be expanded for migration logic)
-    if (!isset($data['data_format_version']) || $data['data_format_version'] !== ESPHOMPM_DATA_FORMAT_VERSION) {
-        error_log("ESPHomePM: Data file version mismatch or missing. Expected: " . ESPHOMPM_DATA_FORMAT_VERSION . ". Found: " . ($data['data_format_version'] ?? 'N/A') . ". Consider backup/migration.");
-        // For now, let's attempt to proceed but log heavily or re-initialize if too different
-        // A more robust solution would be a migration path or forcing re-init for major changes.
-        // Let's add missing top-level keys if they don't exist for basic compatibility
-        if (!isset($data['current_month'])) $data['current_month'] = ['month_year' => date('Y-m'), 'daily_records' => [], 'total_energy_kwh_completed_days' => 0.0, 'total_cost_completed_days' => 0.0];
-        if (!isset($data['historical_months'])) $data['historical_months'] = [];
-        if (!isset($data['overall_totals'])) $data['overall_totals'] = ['monitoring_start_date' => date('Y-m-d'), 'total_energy_kwh_all_time' => 0.0, 'total_cost_all_time' => 0.0];
-        $data['data_format_version'] = ESPHOMPM_DATA_FORMAT_VERSION; // Stamp with current version
-    }
-    return $data;
+    return esphomepm_initialize_data_file();
 }
 
 
 function update_power_consumption_data() {
-    $config = load_plugin_config();
+    $config = esphomepm_load_config();
     if (empty($config['DEVICE_IP']) || !isset($config['COSTS_PRICE'])) {
         error_log("ESPHomePM: update_power_consumption_data - Missing DEVICE_IP or COSTS_PRICE in configuration.");
         return false;
@@ -180,7 +28,7 @@ function update_power_consumption_data() {
     }
 
     // This is the energy for the day that just completed (cron runs at 23:59)
-    $e_completed_day = fetch_esphome_sensor_data($config['DEVICE_IP'], $config['DAILY_ENERGY_SENSOR_PATH']);
+    $e_completed_day = esphomepm_fetch_sensor_data($config['DEVICE_IP'], $config['DAILY_ENERGY_SENSOR_PATH']);
 
     if ($e_completed_day === null) {
         error_log("ESPHomePM: Could not fetch '{$config['DAILY_ENERGY_SENSOR_PATH']}' from ESPHome device {$config['DEVICE_IP']}. Daily update skipped.");
@@ -265,7 +113,7 @@ function update_power_consumption_data() {
     }
 
     // --- Save data ---
-    return save_json_data(ESPHOMPM_DATA_FILE, $power_data);
+    return esphomepm_save_json_data(ESPHOMPM_DATA_FILE, $power_data);
 }
 
 // --- Main execution block (if script is called directly) ---
