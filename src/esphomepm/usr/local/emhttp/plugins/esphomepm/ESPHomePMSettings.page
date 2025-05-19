@@ -1,18 +1,33 @@
 Menu="Utilities"
-Icon="icon-bolt"
+Icon="esphomepm.png"
 Title="ESPHome Power Monitor"
 ---
 <?php
+// Include data handler
 require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
-$config = load_plugin_config();
-$esphomepm_device_ip = isset($config['DEVICE_IP']) ? $config['DEVICE_IP'] : "";
-$esphomepm_device_name = isset($config['DEVICE_NAME']) ? $config['DEVICE_NAME'] : "Unraid Server PM";
-$esphomepm_costs_price = isset($config['COSTS_PRICE']) ? $config['COSTS_PRICE'] : "0.27";
-$esphomepm_costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 
-// Determine which tab to show by default
+// Load configuration
+$config = load_plugin_config();
+
+// Get device settings
+$esphomepm_device_name = $config['device_name'] ?? '';
+$esphomepm_device_ip = $config['device_ip'] ?? '';
+$esphomepm_costs_price = $config['costs_price'] ?? '0.00';
+$esphomepm_costs_unit = $config['costs_unit'] ?? 'GBP';
+
+// Determine if we should show the monitoring tab
 $showMonitorTab = !empty($esphomepm_device_ip);
-$tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 'settings');
+
+// Get current tab
+$tab = $_GET['tab'] ?? 'settings';
+if (!in_array($tab, ['settings', 'monitoring', 'history'])) {
+    $tab = 'settings';
+}
+
+// If monitoring tab is not available, redirect to settings
+if (($tab == 'monitoring' || $tab == 'history') && !$showMonitorTab) {
+    $tab = 'settings';
+}
 ?>
 
 <style>
@@ -96,7 +111,55 @@ $tab = isset($_GET['tab']) ? $_GET['tab'] : ($showMonitorTab ? 'monitoring' : 's
 
 /* Fix for tab styling to match Unraid */
 #title {
-    margin-bottom: 30px;
+    margin-bottom: 0;
+    border-bottom: 1px solid #606E7F;
+    padding-bottom: 0;
+    clear: both;
+}
+
+.tabs {
+    position: relative;
+    min-height: 200px;
+    margin: 25px 0;
+    clear: both;
+}
+
+.tab {
+    float: left;
+}
+
+.tab label {
+    margin-right: 20px;
+    position: relative;
+    top: 0;
+    cursor: pointer;
+    color: #888;
+    text-transform: uppercase;
+}
+
+.tab [type=radio] {
+    display: none;
+}
+
+.content {
+    position: absolute;
+    top: 28px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 20px 0;
+    opacity: 0;
+}
+
+[type=radio]:checked ~ label {
+    border-bottom: 2px solid #1F80E0;
+    color: #1F80E0;
+    z-index: 2;
+}
+
+[type=radio]:checked ~ label ~ .content {
+    z-index: 1;
+    opacity: 1;
 }
 
 #title input[type="button"] {
@@ -272,19 +335,21 @@ table.settings td:nth-child(even) {
     font-weight: bold;
     color: #F57C00;
 }
-
 </style>
 
+<div id="title" style="margin-bottom: 10px;">
+  <span class="left">
+    <input type="button" value="Settings" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
+    <?php if ($showMonitorTab): ?>
+    <input type="button" value="Monitoring" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
+    <input type="button" value="History" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
+    <?php endif; ?>
+  </span>
+</div>
+
+<div style="clear:both; height:30px;"></div>
+
 <div class="plugin-container">
-  <div id="title">
-    <span class="left">
-      <input type="button" value="Settings" onclick="location='?tab=settings'" <?=($tab == 'settings') ? 'class="active"' : ''?>>
-      <?php if ($showMonitorTab): ?>
-      <input type="button" value="Monitoring" onclick="location='?tab=monitoring'" <?=($tab == 'monitoring') ? 'class="active"' : ''?>>
-      <input type="button" value="History" onclick="location='?tab=history'" <?=($tab == 'history') ? 'class="active"' : ''?>>
-      <?php endif; ?>
-    </span>
-  </div>
 
   <?php if ($tab == 'settings'): ?>
   <div class="content">
