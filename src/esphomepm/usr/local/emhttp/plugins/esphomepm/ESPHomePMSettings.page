@@ -186,10 +186,8 @@ function updateDeviceStatus() {
         updatePowerGraph(data.power);
       }
       
-      // Update history data if available
-      if (data.historical_data_available) {
-        updateHistoricalData(data);
-      }
+      // Always update historical data - current month should always be available
+      updateHistoricalData(data);
     })
     .catch(error => {
       console.error('Fetch error:', error);
@@ -216,6 +214,7 @@ function updateMonthlyHistoryTable(historicalMonths, currentMonth) {
   
   let tableContent = '';
   const costUnit = '<?=$esphomepm_costs_unit?>';
+  let hasData = false;
   
   // Add current month if available
   if (currentMonth && currentMonth.month_year) {
@@ -228,6 +227,7 @@ function updateMonthlyHistoryTable(historicalMonths, currentMonth) {
       <td>${energy}</td>
       <td>${cost} ${costUnit}</td>
     </tr>`;
+    hasData = true;
   }
   
   // Add historical months
@@ -246,8 +246,14 @@ function updateMonthlyHistoryTable(historicalMonths, currentMonth) {
           <td>${energy}</td>
           <td>${cost} ${costUnit}</td>
         </tr>`;
+        hasData = true;
       }
     }
+  }
+  
+  // If no data is available, show a message
+  if (!hasData) {
+    tableContent = '<tr><td colspan="3">No historical data available yet. Current month data will appear here.</td></tr>';
   }
   
   // If no data, show message
