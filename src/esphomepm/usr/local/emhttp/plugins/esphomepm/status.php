@@ -144,6 +144,13 @@ $response_data = [
     'current_month_energy_total' => round($current_month_energy_total, 3), // Including today
     'current_month_cost_total' => round($current_month_cost_total, 2),    // Including today
     
+    // Add current month object for history display
+    'current_month' => [
+        'month_year' => isset($historical_data['current_month']['month_year']) ? $historical_data['current_month']['month_year'] : date('Y-m'),
+        'total_energy_kwh_completed_days' => round($current_month_energy_completed_days, 3),
+        'total_cost_completed_days' => round($current_month_cost_completed_days, 2)
+    ],
+    
     // Historical and overall data
     'historical_data_available' => $historical_data_available,
     'historical_months' => $historical_months,
