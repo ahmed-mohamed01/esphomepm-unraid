@@ -129,9 +129,9 @@
     # Ensure emhttp directory exists
     mkdir -p &emhttp;
     
-    # Create cron job for daily data processing at 23:59
-    echo "# ESPHomePM daily data processing at 23:59" > /etc/cron.d/esphomepm
-    echo "59 23 * * * root /usr/bin/php /usr/local/emhttp/plugins/esphomepm/data-handler.php > /dev/null 2>&amp;1" >> /etc/cron.d/esphomepm
+    # Create cron job for daily data processing at 23:58 (with automatic retry at 23:59 if needed)
+    echo "# ESPHomePM daily data processing at 23:58 (with automatic retry at 23:59 if needed)" > /etc/cron.d/esphomepm
+    echo "58 23 * * * root /usr/bin/php /usr/local/emhttp/plugins/esphomepm/data-handler.php > /dev/null 2>&amp;1" >> /etc/cron.d/esphomepm
     chmod 644 /etc/cron.d/esphomepm
     
     echo ""
