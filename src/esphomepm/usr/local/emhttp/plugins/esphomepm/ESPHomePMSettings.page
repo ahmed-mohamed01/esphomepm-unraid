@@ -176,24 +176,11 @@ function updateDeviceStatus() {
         return;
       }
       
-      console.log('Data received from status.php:', data);
-      
-      // Update current readings
-      if (document.getElementById('currentPower')) {
-        document.getElementById('currentPower').textContent = data.power;
-      }
-      
-      if (document.getElementById('dailyEnergy')) {
-        document.getElementById('dailyEnergy').textContent = data.today_energy.toFixed(2);
-      }
-      
-      if (document.getElementById('dailyCost')) {
-        document.getElementById('dailyCost').textContent = data.daily_cost.toFixed(2);
-      }
-      
-      if (document.getElementById('monthlyCost')) {
-        document.getElementById('monthlyCost').textContent = data.monthly_cost_est.toFixed(2);
-      }
+      // Update current readings (monitoring tab)
+      updateElementIfExists('currentPower', data.power);
+      updateElementIfExists('dailyEnergy', data.today_energy.toFixed(2));
+      updateElementIfExists('dailyCost', data.daily_cost.toFixed(2));
+      updateElementIfExists('monthlyCost', data.monthly_cost_est.toFixed(2));
       
       // Update power graph if on monitoring tab
       if (window.powerChart) {
@@ -204,22 +191,18 @@ function updateDeviceStatus() {
       if (document.getElementById('monthlyHistory')) {
         // Get the current month data
         const currentMonth = {
-          month_year: data.debug_info.current_month_from_file?.month_year || '<?=date('Y-m')?>',
+          month_year: data.current_month?.month_year || '<?=date('Y-m')?>',
           total_energy_kwh_completed_days: data.current_month_energy_completed_days,
           total_cost_completed_days: data.current_month_cost_completed_days
         };
-        
-        console.log('Current month for history:', currentMonth);
         
         // Update the history table
         updateMonthlyHistoryTable(data.historical_months, currentMonth);
         
         // Update total statistics
-        if (document.getElementById('totalEnergy')) {
-          document.getElementById('totalEnergy').textContent = data.overall_total_energy.toFixed(2);
-          document.getElementById('totalCost').textContent = data.overall_total_cost.toFixed(2);
-          document.getElementById('monitoringSince').textContent = data.monitoring_start_date;
-        }
+        updateElementIfExists('totalEnergy', data.overall_total_energy.toFixed(2));
+        updateElementIfExists('totalCost', data.overall_total_cost.toFixed(2));
+        updateElementIfExists('monitoringSince', data.monitoring_start_date);
       }
     })
     .catch(error => {
@@ -227,86 +210,58 @@ function updateDeviceStatus() {
     });
 }
 
-function updateHistoricalData(data) {
-  // Debug: Log the data received from the server
-  console.log('Historical data received:', data);
-  
-  // Update total statistics
-  if (document.getElementById('totalEnergy')) {
-    document.getElementById('totalEnergy').textContent = data.overall_total_energy.toFixed(2);
-    document.getElementById('totalCost').textContent = data.overall_total_cost.toFixed(2);
-    document.getElementById('monitoringSince').textContent = data.monitoring_start_date;
-  }
-  
-  // Update monthly history table
-  if (document.getElementById('monthlyHistory')) {
-    // Debug: Log the data being passed to updateMonthlyHistoryTable
-    console.log('Passing to updateMonthlyHistoryTable:', { 
-      historicalMonths: data.historical_months, 
-      currentMonth: data.current_month 
-    });
-    updateMonthlyHistoryTable(data.historical_months, data.current_month);
-  }
+// Helper function to update element content if the element exists
+function updateElementIfExists(elementId, value) {
+  const element = document.getElementById(elementId);
+  if (element) element.textContent = value;
 }
+
+// Function removed as it's now handled directly in updateDeviceStatus
 
 function updateMonthlyHistoryTable(historicalMonths, currentMonth) {
   const monthlyHistoryElement = document.getElementById('monthlyHistory');
-  if (!monthlyHistoryElement) {
-    console.error('monthlyHistory element not found');
-    return;
-  }
+  if (!monthlyHistoryElement) return;
   
   let tableContent = '';
   const costUnit = '<?=$esphomepm_costs_unit?>';
   let hasData = false;
   
-  // Add current month data (this should always be available)
-  try {
-    const currentMonthYear = currentMonth?.month_year || '<?=date("Y-m")?>';
-    const monthName = getMonthNameFromYearMonth(currentMonthYear);
-    const energy = parseFloat(currentMonth?.total_energy_kwh_completed_days || 0).toFixed(2);
-    const cost = parseFloat(currentMonth?.total_cost_completed_days || 0).toFixed(2);
-    
-    console.log('Adding current month to history table:', { monthName, energy, cost });
-    
-    tableContent += `<tr>
-      <td>${monthName}</td>
-      <td>${energy}</td>
-      <td>${cost} ${costUnit}</td>
-    </tr>`;
-    hasData = true;
-  } catch (error) {
-    console.error('Error processing current month data:', error);
-  }
+  // Add current month data
+  const currentMonthYear = currentMonth?.month_year || '<?=date("Y-m")?>';
+  const monthName = getMonthNameFromYearMonth(currentMonthYear);
+  const energy = parseFloat(currentMonth?.total_energy_kwh_completed_days || 0).toFixed(2);
+  const cost = parseFloat(currentMonth?.total_cost_completed_days || 0).toFixed(2);
+  
+  tableContent += `<tr>
+    <td>${monthName}</td>
+    <td>${energy}</td>
+    <td>${cost} ${costUnit}</td>
+  </tr>`;
+  hasData = true;
   
   // Add historical months if available
   if (historicalMonths && typeof historicalMonths === 'object') {
-    try {
-      const sortedMonths = Object.keys(historicalMonths).sort().reverse();
-      
-      for (const monthYear of sortedMonths) {
-        const monthData = historicalMonths[monthYear];
-        if (monthData) {
-          const monthName = getMonthNameFromYearMonth(monthYear);
-          const energy = parseFloat(monthData.energy_kwh || 0).toFixed(2);
-          const cost = parseFloat(monthData.cost || 0).toFixed(2);
-          
-          tableContent += `<tr>
-            <td>${monthName}</td>
-            <td>${energy}</td>
-            <td>${cost} ${costUnit}</td>
-          </tr>`;
-          hasData = true;
-        }
+    const sortedMonths = Object.keys(historicalMonths).sort().reverse();
+    
+    for (const monthYear of sortedMonths) {
+      const monthData = historicalMonths[monthYear];
+      if (monthData) {
+        const monthName = getMonthNameFromYearMonth(monthYear);
+        const energy = parseFloat(monthData.energy_kwh || 0).toFixed(2);
+        const cost = parseFloat(monthData.cost || 0).toFixed(2);
+        
+        tableContent += `<tr>
+          <td>${monthName}</td>
+          <td>${energy}</td>
+          <td>${cost} ${costUnit}</td>
+        </tr>`;
       }
-    } catch (error) {
-      console.error('Error processing historical months:', error);
     }
   }
   
   // If no data is available, show a message
   if (!hasData) {
-    tableContent = '<tr><td colspan="3">No historical data available yet. Current month data will appear here.</td></tr>';
+    tableContent = '<tr><td colspan="3">No historical data available yet.</td></tr>';
   }
   
   // Update the table content
@@ -319,23 +274,25 @@ function getMonthNameFromYearMonth(yearMonth) {
   const months = ['January', 'February', 'March', 'April', 'May', 'June', 
                  'July', 'August', 'September', 'October', 'November', 'December'];
   
-  const parts = yearMonth.split('-');
-  if (parts.length !== 2) return yearMonth;
+  try {
+    const parts = yearMonth.split('-');
+    const year = parts[0];
+    const month = parseInt(parts[1], 10);
+    
+    if (parts.length === 2 && !isNaN(month) && month >= 1 && month <= 12) {
+      return `${months[month-1]} ${year}`;
+    }
+  } catch (e) {}
   
-  const year = parts[0];
-  const month = parseInt(parts[1], 10);
-  
-  if (isNaN(month) || month < 1 || month > 12) return yearMonth;
-  
-  return `${months[month-1]} ${year}`;
+  return yearMonth;
 }
 
 // Initialize power graph
 function initPowerGraph() {
-  if (!document.getElementById('powerGraph')) return;
+  const powerGraph = document.getElementById('powerGraph');
+  if (!powerGraph) return;
   
-  const ctx = document.getElementById('powerGraph').getContext('2d');
-  window.powerChart = new Chart(ctx, {
+  window.powerChart = new Chart(powerGraph.getContext('2d'), {
     type: 'line',
     data: {
       labels: Array(30).fill('').map((_, i) => `-${29-i}s`),
@@ -353,31 +310,16 @@ function initPowerGraph() {
       responsive: true,
       maintainAspectRatio: false,
       scales: {
-        y: {
-          beginAtZero: true,
-          grid: {
-            color: 'rgba(255, 255, 255, 0.1)'
-          }
-        },
-        x: {
-          grid: {
-            color: 'rgba(255, 255, 255, 0.1)'
-          }
-        }
+        y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' } },
+        x: { grid: { color: 'rgba(255, 255, 255, 0.1)' } }
       },
-      animation: {
-        duration: 500
-      },
-      plugins: {
-        legend: {
-          display: false
-        }
-      }
+      plugins: { legend: { display: false } },
+      animation: { duration: 0 }
     }
   });
 }
 
-// Update power graph with new data
+// Update power graph with new data point
 function updatePowerGraph(power) {
   if (!window.powerChart) return;
   
