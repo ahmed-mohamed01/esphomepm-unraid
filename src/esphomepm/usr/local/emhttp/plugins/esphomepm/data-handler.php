@@ -21,8 +21,21 @@ function load_plugin_config() {
     if (file_exists(ESPHOMPM_CONFIG_FILE)) {
         $raw_cfg = parse_ini_file(ESPHOMPM_CONFIG_FILE);
         if ($raw_cfg !== false) {
-            $config['DEVICE_IP'] = isset($raw_cfg['DEVICE_IP']) ? $raw_cfg['DEVICE_IP'] : "";
-            $config['COSTS_PRICE'] = isset($raw_cfg['COSTS_PRICE']) ? (float)$raw_cfg['COSTS_PRICE'] : 0.0;
+            // Handle both uppercase and lowercase config keys for compatibility
+            // Device settings
+            $config['device_ip'] = isset($raw_cfg['DEVICE_IP']) ? $raw_cfg['DEVICE_IP'] : (isset($raw_cfg['device_ip']) ? $raw_cfg['device_ip'] : "");
+            $config['device_name'] = isset($raw_cfg['DEVICE_NAME']) ? $raw_cfg['DEVICE_NAME'] : (isset($raw_cfg['device_name']) ? $raw_cfg['device_name'] : "Unraid Server PM");
+            
+            // Cost settings
+            $config['costs_price'] = isset($raw_cfg['COSTS_PRICE']) ? (float)$raw_cfg['COSTS_PRICE'] : (isset($raw_cfg['costs_price']) ? (float)$raw_cfg['costs_price'] : 0.0);
+            $config['costs_unit'] = isset($raw_cfg['COSTS_UNIT']) ? $raw_cfg['COSTS_UNIT'] : (isset($raw_cfg['costs_unit']) ? $raw_cfg['costs_unit'] : "GBP");
+            
+            // For backward compatibility, also set uppercase keys
+            $config['DEVICE_IP'] = $config['device_ip'];
+            $config['DEVICE_NAME'] = $config['device_name'];
+            $config['COSTS_PRICE'] = $config['costs_price'];
+            $config['COSTS_UNIT'] = $config['costs_unit'];
+            
             // Optional: allow user to specify sensor paths, default to 'power' and 'daily_energy'
             $config['POWER_SENSOR_PATH'] = !empty($raw_cfg['POWER_SENSOR_PATH']) ? $raw_cfg['POWER_SENSOR_PATH'] : 'power';
             $config['DAILY_ENERGY_SENSOR_PATH'] = !empty($raw_cfg['DAILY_ENERGY_SENSOR_PATH']) ? $raw_cfg['DAILY_ENERGY_SENSOR_PATH'] : 'daily_energy';

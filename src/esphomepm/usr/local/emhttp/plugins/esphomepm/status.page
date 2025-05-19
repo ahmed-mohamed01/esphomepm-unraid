@@ -1,11 +1,13 @@
 Menu="Dashboard"
-Icon="icon-bolt"
+Type="xmenu"
+Icon="bolt"
 ---
 <style type="text/css">
     <?php
         require_once("/usr/local/emhttp/plugins/esphomepm/data-handler.php");
         $config = load_plugin_config();
-        $sortnr = $N+2
+        $N = isset($N) ? $N : 0; // Define $N if not already defined
+        $sortnr = $N+2;
     ?>
     #dash_esphomepm_settings i, #esphomepm_view {margin-top:0px;}
     

@@ -1,6 +1,6 @@
 Menu="Utilities"
-Icon="icon-bolt"
 Title="ESPHome Power Monitor"
+Icon="bolt"
 ---
 <?php
 // Include data handler
