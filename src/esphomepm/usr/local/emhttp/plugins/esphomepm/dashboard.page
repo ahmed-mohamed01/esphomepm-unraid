@@ -1,0 +1,144 @@
+Menu="Dashboard:4"
+---
+<?php
+require_once '/usr/local/emhttp/plugins/esphomepm/include/functions.php';
+
+$pluginname = "ESPHome Power Monitor";
+$config = esphomepm_load_config();
+$costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
+
+// Create the dashboard layout
+$layout = ESPHomePMLayout($costs_unit);
+
+// Add the dashboard widget to the mytiles array
+$mytiles[$pluginname]['column1'] = <<<EOT
+<tbody id="esphomepm" title="$pluginname">
+<tr>
+    <td><i class='fa fa-bolt icon'></i></td>
+    <td colspan="3" class="next">
+        <span class="inner">
+            <span>$pluginname</span>
+            <br>
+            <span>Current Power: <span class="esphomepm-current-power">0</span> W</span>
+        </span>
+    </td>
+    <td><a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a></td>
+</tr>
+<tr>
+    <td></td>
+    <td colspan="3">
+        $layout
+    </td>
+    <td></td>
+</tr>
+</tbody>
+EOT;
+
+// Function to create the dashboard layout
+function ESPHomePMLayout($costs_unit) {
+    $layout = '<table class="power-stats" style="width:100%;">';
+    
+    // Daily row
+    $layout .= '<tr>';
+    $layout .= '<td style="width:40%;">Daily Power:</td>';
+    $layout .= '<td style="width:10%;"><span class="esphomepm-energy-today">0.00</span> kWh</td>';
+    $layout .= '<td style="width:40%;">Daily Cost:</td>';
+    $layout .= '<td style="width:10%;"><span class="esphomepm-highlight esphomepm-costs_today">0.00</span> ' . $costs_unit . '</td>';
+    $layout .= '</tr>';
+    
+    // Monthly row
+    $layout .= '<tr>';
+    $layout .= '<td>Monthly Power:</td>';
+    $layout .= '<td><span class="esphomepm-energy-month">0.00</span> kWh</td>';
+    $layout .= '<td>Monthly Cost:</td>';
+    $layout .= '<td><span class="esphomepm-highlight esphomepm-costs_month">0.00</span> ' . $costs_unit . '</td>';
+    $layout .= '</tr>';
+    
+    // Total row
+    $layout .= '<tr>';
+    $layout .= '<td>Total Power:</td>';
+    $layout .= '<td><span class="esphomepm-energy-total">0.00</span> kWh</td>';
+    $layout .= '<td>Total Cost:</td>';
+    $layout .= '<td><span class="esphomepm-highlight esphomepm-costs_total">0.00</span> ' . $costs_unit . '</td>';
+    $layout .= '</tr>';
+    
+    // Average row
+    $layout .= '<tr>';
+    $layout .= '<td>Average Daily Power:</td>';
+    $layout .= '<td colspan="3"><span class="esphomepm-avg-power">0</span> W</td>';
+    $layout .= '</tr>';
+    
+    $layout .= '</table>';
+    
+    return $layout;
+}
+?>
+
+<style>
+.esphomepm-highlight, .esphomepm-current-power, .esphomepm-costs_today, .esphomepm-costs_month, .esphomepm-costs_total {
+    font-weight: bold;
+    color: #F57C00;
+}
+.fa-bolt {
+    color: #F57C00;
+}
+.power-stats td {
+    padding: 2px 5px;
+}
+</style>
+
+<script>
+// Update ESPHome Power Monitor dashboard widget
+function updateESPHomePMStatus() {
+    $.getJSON('/plugins/esphomepm/status.php', function(data) {
+        if (!data) return;
+        
+        // Update current power
+        updateValue('.esphomepm-current-power', data.power, 2);
+        
+        // Calculate average daily power if possible
+        if (data.today_energy !== undefined) {
+            // Get hours passed in the day
+            const now = new Date();
+            const hoursPassed = now.getHours() + (now.getMinutes() / 60);
+            if (hoursPassed > 0) {
+                // Calculate average power in watts (kWh -> W conversion)
+                const avgPower = (data.today_energy * 1000) / hoursPassed;
+                updateValue('.esphomepm-avg-power', avgPower, 0);
+            } else {
+                updateValue('.esphomepm-avg-power', 0, 0);
+            }
+        } else {
+            updateValue('.esphomepm-avg-power', 0, 0);
+        }
+        
+        // Energy values
+        updateValue('.esphomepm-energy-today', data.today_energy, 3);
+        updateValue('.esphomepm-energy-month', data.current_month_energy_total, 3);
+        updateValue('.esphomepm-energy-total', data.overall_total_energy, 3);
+        
+        // Cost values
+        updateValue('.esphomepm-costs_today', data.daily_cost, 2);
+        updateValue('.esphomepm-costs_month', data.current_month_cost_total || data.monthly_cost_est, 2);
+        updateValue('.esphomepm-costs_total', data.overall_total_cost, 2);
+    });
+}
+
+// Helper function to update values with proper formatting
+function updateValue(selector, value, decimals) {
+    if (value !== undefined && value !== null) {
+        $(selector).html(parseFloat(value).toFixed(decimals));
+    } else {
+        $(selector).html('0.00');
+    }
+}
+
+// Initialize the dashboard widget
+$(function() {
+    // Initial update
+    updateESPHomePMStatus();
+    
+    // Set up automatic refresh every 10 seconds
+    setInterval(updateESPHomePMStatus, 10000);
+});
+</script>

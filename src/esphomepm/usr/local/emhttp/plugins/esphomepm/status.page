@@ -10,10 +10,10 @@ $costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 
 // Define the dashboard widget
 $plugin = "esphomepm";
+$pluginname = "ESPHome Power Monitor";
 $cols = "2";
 $bgcolor = "#F57C00";
 $fgcolor = "#FFFFFF";
-$title = "ESPHome Power Monitor";
 $icon = "bolt";
 
 // Create the dashboard widget
