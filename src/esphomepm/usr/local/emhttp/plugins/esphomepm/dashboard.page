@@ -1,6 +1,6 @@
 Menu="Dashboard:0"
-Title="ESPHome Power Monitor"      # optional but nice to have
---- 
+Title="ESPHome Power Monitor"
+---
 <?php
 /* ───────────────────────────────────────────────────────────────
  *  ESPHome Power Monitor – Dashboard tile
