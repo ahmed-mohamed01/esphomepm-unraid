@@ -341,3 +341,69 @@ function esphomepm_validate_cron_time() {
     
     return $is_expected_time || $is_retry;
 }
+
+/**
+ * Get the JavaScript code for updating the ESPHomePM dashboard widget
+ * 
+ * @return string JavaScript code for updating the dashboard widget
+ */
+function esphomepm_get_dashboard_javascript() {
+    $js = <<<EOT
+<script type="text/javascript">
+$(function() {
+    // Update ESPHome Power Monitor dashboard widget
+    function updateESPHomePMStatus() {
+        $.getJSON('/plugins/esphomepm/status.php', function(data) {
+            if (!data) return;
+            
+            // Update current power
+            updateValue('.esphomepm-current-power', data.power, 2);
+            
+            // Calculate average daily power if possible
+            if (data.today_energy !== undefined) {
+                // Get hours passed in the day
+                const now = new Date();
+                const hoursPassed = now.getHours() + (now.getMinutes() / 60);
+                if (hoursPassed > 0) {
+                    // Calculate average power in watts (kWh -> W conversion)
+                    const avgPower = (data.today_energy * 1000) / hoursPassed;
+                    updateValue('.esphomepm-avg-power', avgPower, 0);
+                } else {
+                    updateValue('.esphomepm-avg-power', 0, 0);
+                }
+            } else {
+                updateValue('.esphomepm-avg-power', 0, 0);
+            }
+            
+            // Energy values
+            updateValue('.esphomepm-energy-today', data.today_energy, 3);
+            updateValue('.esphomepm-energy-month', data.current_month_energy_total, 3);
+            updateValue('.esphomepm-energy-total', data.overall_total_energy, 3);
+            
+            // Cost values
+            updateValue('.esphomepm-costs_today', data.daily_cost, 2);
+            updateValue('.esphomepm-costs_month', data.current_month_cost_total || data.monthly_cost_est, 2);
+            updateValue('.esphomepm-costs_total', data.overall_total_cost, 2);
+        });
+    }
+
+    // Helper function to update values with proper formatting
+    function updateValue(selector, value, decimals) {
+        if (value !== undefined && value !== null) {
+            $(selector).html(parseFloat(value).toFixed(decimals));
+        } else {
+            $(selector).html('0.00');
+        }
+    }
+
+    // Initial update
+    updateESPHomePMStatus();
+    
+    // Set up automatic refresh every 10 seconds
+    setInterval(updateESPHomePMStatus, 10000);
+});
+</script>
+EOT;
+    
+    return $js;
+}

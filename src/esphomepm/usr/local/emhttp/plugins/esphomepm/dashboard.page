@@ -1,48 +1,20 @@
 Menu="Dashboard:4"
-Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'6.11.0','>')"
 ---
 <?php
-// Include necessary functions
-require_once '/usr/local/emhttp/plugins/esphomepm/include/functions.php';
+// Simple dashboard widget for debugging purposes
+$pluginname = "ESPHome Power Monitor";
 
-// Load configuration
-$config = esphomepm_load_config();
-$costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
-
-// Create the dashboard widget content
+// Create a simple dashboard widget content
 $dashboard_content = <<<EOT
-<tbody title="ESPHome Power Monitor">
+<tbody title="$pluginname">
     <tr>
         <td><i class="fa fa-bolt" style="color:#F57C00"></i></td>
         <td colspan="3" class="next">
-            <span>ESPHome Power Monitor</span>
+            <span>$pluginname</span>
             <br>
-            <span>Current Power: <span class="esphomepm-current-power" style="font-weight:bold;color:#F57C00">0</span> W</span>
+            <span>Hello from Power Monitor!</span>
         </td>
         <td><a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a></td>
-    </tr>
-    <tr>
-        <td></td>
-        <td>Daily Power: <span class="esphomepm-energy-today">0.00</span> kWh</td>
-        <td>Daily Cost: <span class="esphomepm-costs_today" style="font-weight:bold;color:#F57C00">0.00</span> $costs_unit</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td></td>
-        <td>Monthly Power: <span class="esphomepm-energy-month">0.00</span> kWh</td>
-        <td>Monthly Cost: <span class="esphomepm-costs_month" style="font-weight:bold;color:#F57C00">0.00</span> $costs_unit</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td></td>
-        <td>Total Power: <span class="esphomepm-energy-total">0.00</span> kWh</td>
-        <td>Total Cost: <span class="esphomepm-costs_total" style="font-weight:bold;color:#F57C00">0.00</span> $costs_unit</td>
-        <td></td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="3">Average Daily Power: <span class="esphomepm-avg-power">0</span> W</td>
-        <td></td>
     </tr>
 </tbody>
 EOT;
@@ -50,58 +22,3 @@ EOT;
 // Add the dashboard widget to the mytiles array
 $mytiles['esphomepm']['column1'] = $dashboard_content;
 ?>
-
-<script type="text/javascript">
-$(function() {
-    // Update ESPHome Power Monitor dashboard widget
-    function updateESPHomePMStatus() {
-        $.getJSON('/plugins/esphomepm/status.php', function(data) {
-            if (!data) return;
-            
-            // Update current power
-            updateValue('.esphomepm-current-power', data.power, 2);
-            
-            // Calculate average daily power if possible
-            if (data.today_energy !== undefined) {
-                // Get hours passed in the day
-                const now = new Date();
-                const hoursPassed = now.getHours() + (now.getMinutes() / 60);
-                if (hoursPassed > 0) {
-                    // Calculate average power in watts (kWh -> W conversion)
-                    const avgPower = (data.today_energy * 1000) / hoursPassed;
-                    updateValue('.esphomepm-avg-power', avgPower, 0);
-                } else {
-                    updateValue('.esphomepm-avg-power', 0, 0);
-                }
-            } else {
-                updateValue('.esphomepm-avg-power', 0, 0);
-            }
-            
-            // Energy values
-            updateValue('.esphomepm-energy-today', data.today_energy, 3);
-            updateValue('.esphomepm-energy-month', data.current_month_energy_total, 3);
-            updateValue('.esphomepm-energy-total', data.overall_total_energy, 3);
-            
-            // Cost values
-            updateValue('.esphomepm-costs_today', data.daily_cost, 2);
-            updateValue('.esphomepm-costs_month', data.current_month_cost_total || data.monthly_cost_est, 2);
-            updateValue('.esphomepm-costs_total', data.overall_total_cost, 2);
-        });
-    }
-
-    // Helper function to update values with proper formatting
-    function updateValue(selector, value, decimals) {
-        if (value !== undefined && value !== null) {
-            $(selector).html(parseFloat(value).toFixed(decimals));
-        } else {
-            $(selector).html('0.00');
-        }
-    }
-
-    // Initial update
-    updateESPHomePMStatus();
-    
-    // Set up automatic refresh every 10 seconds
-    setInterval(updateESPHomePMStatus, 10000);
-});
-</script>
