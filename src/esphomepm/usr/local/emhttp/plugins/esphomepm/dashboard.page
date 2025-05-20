@@ -15,8 +15,10 @@ $mytiles['esphomepm']['column2'] = <<<EOT
 <tr>
     <td><i class="fa fa-tachometer-alt f32" style="color:#FFFFFF;"></i>
         <div class='section'>$pluginname<span><br>
-            <span style="display:inline-block; margin-right:10px;">Power Today: <span class="esphomepm-energy-today" style="font-weight:bold;">0.00</span> kWh</span>
-            <span style="display:inline-block;">Daily Cost: <span class="esphomepm-costs_today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</span>
+            <span class="esphomepm-status-dot" style="display:inline-block; height:10px; width:10px; border-radius:50%; background-color:#999; margin-right:5px;"></span>
+            <span style="display:inline-block; margin-right:10px;">Current: <span class="esphomepm-current-power" style="font-weight:bold;">0.00</span> W</span>
+            <span style="display:inline-block; margin-right:10px;">Today: <span class="esphomepm-energy-today" style="font-weight:bold;">0.00</span> kWh</span>
+            <span style="display:inline-block;">Cost: <span class="esphomepm-costs_today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</span>
         </span></div>
         <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a>
     </td>
