@@ -8,91 +8,64 @@ $pluginname = "ESPHome Power Monitor";
 require_once '/usr/local/emhttp/plugins/esphomepm/include/functions.php';
 $config = esphomepm_load_config();
 $costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
+
+// Create the dashboard widget content
+$mytiles['esphomepm']['column1'] = <<<EOT
+<tbody class="sortable">
+<tr><td class="next" colspan="2">
+<i class="fa fa-plug icon"></i><div class="section">$pluginname<br><span class="esphomepm-current-power">0</span> W</div>
+<i class="fa fa-fw fa-chevron-down chevron" onclick="expandESPHomePM()" id="esphomepm_expand"></i>
+<a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog chevron"></i></a>
+</td></tr>
+<tr class="esphomepm-info" style="display:none;">
+<td colspan="2">
+<div style="margin-top:8px;">
+<table style="width:100%;">
+<tr>
+<td style="width:33%; text-align:center;"><b>Today</b></td>
+<td style="width:33%; text-align:center;"><b>Month</b></td>
+<td style="width:33%; text-align:center;"><b>Total</b></td>
+</tr>
+<tr>
+<td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-today" style="font-weight:bold;">0.00</span> kWh</td>
+<td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-month" style="font-weight:bold;">0.00</span> kWh</td>
+<td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-total" style="font-weight:bold;">0.00</span> kWh</td>
+</tr>
+<tr>
+<td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs-today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
+<td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs-month" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
+<td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs-total" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
+</tr>
+</table>
+</div>
+</td>
+</tr>
+</tbody>
+EOT;
 ?>
 
-<style type="text/css">
-    #dash_esphomepm_settings i, #esphomepm_view {margin-top:0px;}
-</style>
-
-<table id='db-box1' class='dash_esphomepm dashboard box1' style="display:none">
-    <thead sort='1'>
-        <tr class='hidden'>
-            <td></td>
-            <td colspan='3'></td>
-            <td></td>
-        </tr>
-    </thead>
-    <tbody sort='1' class='sortable'>
-        <tr>
-            <td></td>
-            <td colspan='3' class='next'>
-                <i class='fa fa-plug' style="color:#FFFFFF;"></i>
-                <div class='section'><?=$pluginname?><br><span id='load'>Usage: <span class='esphomepm-current-power'>0</span> W</span><br><br></div>
-                <i class='fa fa-fw chevron' id='esphomepm_view' onclick='toggleChevron("esphomepm_view",0)'></i>
-                <a href='/Settings/ESPHomePMSettings' title="Go to ESPHome Power Monitor settings"><i class='fa fa-fw fa-cog chevron'></i></a>
-            </td>
-            <td></td>
-
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Today:</td>
-                <td><span class="esphomepm-energy-today">0.000</span> kWh</td>
-                <td><span class="esphomepm-costs_today">0.00</span> <span class="esphomepm-costs_unit"><?=$costs_unit?></span></td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Month:</td>
-                <td><span class="esphomepm-energy-month">0.000</span> kWh</td>
-                <td><span class="esphomepm-costs_month">0.00</span> <span class="esphomepm-costs_unit"><?=$costs_unit?></span></td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Total:</td>
-                <td><span class="esphomepm-energy-total">0.000</span> kWh</td>
-                <td><span class="esphomepm-costs_total">0.00</span> <span class="esphomepm-costs_unit"><?=$costs_unit?></span></td>
-                <td></td>
-            </tr>
-            <tr class="esphomepm_view">
-                <td></td>
-                <td>Power</td>
-                <td colspan="2"><span class="esphomepm-current-power">0.00</span> W</td>
-                <td></td>
-            </tr>
-        </tr>
-    </tbody>
-</table>
-
 <script>
-const esphomepm_status = () => {
-    $.getJSON("/plugins/esphomepm/status.php", (data) => {
-        if (data) {
-            $(".esphomepm-current-power").html(data.power);
-            $(".esphomepm-energy-today").html(data.energy_today || data.today_energy);
-            $(".esphomepm-energy-month").html(data.energy_month || data.current_month_energy_total);
-            $(".esphomepm-energy-total").html(data.energy_total || data.overall_total_energy);
-            $(".esphomepm-costs_today").html(data.costs_today || data.daily_cost);
-            $(".esphomepm-costs_month").html(data.costs_month || data.current_month_cost_total);
-            $(".esphomepm-costs_total").html(data.costs_total || data.overall_total_cost);
-            $(".esphomepm-costs_unit").html(data.costs_unit || "<?=$costs_unit?>");
-        }
-    });
-};
+function expandESPHomePM() {
+  $('.esphomepm-info').toggle();
+  $('#esphomepm_expand').toggleClass('fa-chevron-down fa-chevron-up');
+}
 
-$(esphomepm_status);
-setInterval(esphomepm_status, 10000); // Update every 10 seconds
+function updateESPHomePMData() {
+  $.getJSON('/plugins/esphomepm/status.php', function(data) {
+    if (data) {
+      $('.esphomepm-current-power').html(data.power + ' W');
+      $('.esphomepm-energy-today').html(data.today_energy || data.energy_today || '0.00');
+      $('.esphomepm-energy-month').html(data.current_month_energy_total || data.energy_month || '0.00');
+      $('.esphomepm-energy-total').html(data.overall_total_energy || data.energy_total || '0.00');
+      $('.esphomepm-costs-today').html(data.daily_cost || data.costs_today || '0.00');
+      $('.esphomepm-costs-month').html(data.current_month_cost_total || data.costs_month || '0.00');
+      $('.esphomepm-costs-total').html(data.overall_total_cost || data.costs_total || '0.00');
+    }
+  });
+}
 
 $(function() {
-    // append data from the table into the correct one
-    $("#db-box1").append($(".dash_esphomepm").html());
-    
-    // reload toggle to get the correct state
-    toggleView('esphomepm_view', true);
-    
-    // reload sorting to get the stored data (cookie)
-    if (typeof sortTable === 'function') {
-        sortTable($('#db-box1'), $.cookie('db-box1'));
-    }
+  updateESPHomePMData();
+  setInterval(updateESPHomePMData, 10000); // Update every 10 seconds
 });
 </script>
