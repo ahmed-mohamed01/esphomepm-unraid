@@ -4,59 +4,17 @@ Menu="Dashboard:0"
 // Define plugin name and other variables
 $pluginname = "ESPHome Power Monitor";
 
-// Load configuration to get cost unit
-require_once '/usr/local/emhttp/plugins/esphomepm/include/functions.php';
-$config = esphomepm_load_config();
-$costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
-
-// Get the expanded layout content
-$layout = ESPHomePMLayout($costs_unit);
-
-// Create the dashboard widget content
+// Create the dashboard widget content - absolute minimum
 $mytiles['esphomepm']['column2'] = <<<EOT
 <tbody id="esphomepm" title="$pluginname">
 <tr>
     <td><i class="fa fa-plug f32" style="color:#FFFFFF;"></i>
         <div class='section'>$pluginname<span><br>
-            <span style="display:inline-block; margin-right:10px;">Current: <span class="esphomepm-current-power" style="font-weight:bold;">0.00</span> W</span>
-            <span style="display:inline-block; margin-right:10px;">Today: <span class="esphomepm-energy-today" style="font-weight:bold;">0.00</span> kWh</span>
-            <span style="display:inline-block;">Cost: <span class="esphomepm-costs_today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</span>
+            Power Monitor Dashboard
         </span></div>
         <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a>
     </td>
 </tr>
-<tr><td>
-$layout
-</td></tr>
 </tbody>
 EOT;
-
-// Function to generate the expanded view layout
-function ESPHomePMLayout($costs_unit) {
-    $layout = <<<EOT
-    <div style="margin-top:8px;">
-        <table style="width:100%;">
-            <tr>
-                <td style="width:33%; text-align:center;"><b>Today</b></td>
-                <td style="width:33%; text-align:center;"><b>Month</b></td>
-                <td style="width:33%; text-align:center;"><b>Total</b></td>
-            </tr>
-            <tr>
-                <td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-today" style="font-weight:bold;">0.00</span> kWh</td>
-                <td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-month" style="font-weight:bold;">0.00</span> kWh</td>
-                <td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-total" style="font-weight:bold;">0.00</span> kWh</td>
-            </tr>
-            <tr>
-                <td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs_today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
-                <td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs_month" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
-                <td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs_total" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
-            </tr>
-        </table>
-    </div>
-EOT;
-    return $layout;
-}
-
-// Include the JavaScript for updating the dashboard widget
-echo esphomepm_get_dashboard_javascript();
 ?>
