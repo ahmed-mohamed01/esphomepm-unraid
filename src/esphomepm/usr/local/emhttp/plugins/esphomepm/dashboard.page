@@ -13,7 +13,7 @@ $costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 $mytiles['esphomepm']['column2'] = <<<EOT
 <tbody id="esphomepm" title="$pluginname">
 <tr>
-    <td><img src="/plugins/esphomepm/images/esphomepm.png" class="f32" style="width:32px; height:32px;">
+    <td><i class="fa fa-tachometer-alt f32" style="color:#FFFFFF;"></i>
         <div class='section'>$pluginname<span><br>
             <span style="display:inline-block; margin-right:10px;">Power Today: <span class="esphomepm-energy-today" style="font-weight:bold;">0.00</span> kWh</span>
             <span style="display:inline-block;">Daily Cost: <span class="esphomepm-costs_today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</span>
