@@ -1,7 +1,6 @@
 Menu="Dashboard:0"
-Title="ESPHome Power Monitor"
-Icon="bolt"
-
+Title="ESPHome Power Monitor"      # optional but nice to have
+--- 
 <?php
 /* ───────────────────────────────────────────────────────────────
  *  ESPHome Power Monitor – Dashboard tile
