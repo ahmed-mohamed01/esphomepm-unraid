@@ -3,84 +3,53 @@ Title="ESPHome Power Monitor"
 Icon="bolt"
 ---
 <?php
-    require_once("/usr/local/emhttp/plugins/esphomepm/include/functions.php");
-    $config = esphomepm_load_config();
-    $costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
-    
-    // Create the dashboard widget content
-    $dashboard_content = <<<EOT
-<tbody title="ESPHome Power Monitor" class="sortable">
-    <tr>
-        <td><i class="fa fa-bolt icon"></i></td>
-        <td colspan="3" class="next">
-            <span class="inner">
-                <span>ESPHome Power Monitor</span>
-                <br>
-                <span id="load">Current Power: <span class="esphomepm-highlight esphomepm-current-power">0</span> W</span>
-            </span>
-        </td>
-        <td><a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a></td>
-    </tr>
-    <tr>
-        <td></td>
-        <td colspan="3">
-            <table class="power-stats">
-                <tr>
-                    <td>Daily Power:</td>
-                    <td><span class="esphomepm-energy-today">0.00</span> kWh</td>
-                    <td>Daily Cost:</td>
-                    <td><span class="esphomepm-highlight esphomepm-costs_today">0.00</span> {$costs_unit}</td>
-                </tr>
-                <tr>
-                    <td>Monthly Power:</td>
-                    <td><span class="esphomepm-energy-month">0.00</span> kWh</td>
-                    <td>Monthly Cost:</td>
-                    <td><span class="esphomepm-highlight esphomepm-costs_month">0.00</span> {$costs_unit}</td>
-                </tr>
-                <tr>
-                    <td>Total Power:</td>
-                    <td><span class="esphomepm-energy-total">0.00</span> kWh</td>
-                    <td>Total Cost:</td>
-                    <td><span class="esphomepm-highlight esphomepm-costs_total">0.00</span> {$costs_unit}</td>
-                </tr>
-                <tr>
-                    <td>Average Daily Power:</td>
-                    <td colspan="3"><span class="esphomepm-avg-power">0</span> W</td>
-                </tr>
-            </table>
-        </td>
-        <td></td>
-    </tr>
-</tbody>
-EOT;
+$docroot = $docroot ?? $_SERVER['DOCUMENT_ROOT'] ?: '/usr/local/emhttp';
+require_once("$docroot/plugins/esphomepm/include/functions.php");
+$config = esphomepm_load_config();
+$costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 
-    // Add the dashboard widget to the mytiles array
-    $mytiles['esphomepm']['column1'] = $dashboard_content;
+// Define the dashboard widget
+$plugin = "esphomepm";
+$cols = "2";
+$bgcolor = "#F57C00";
+$fgcolor = "#FFFFFF";
+$title = "ESPHome Power Monitor";
+$icon = "bolt";
+
+// Create the dashboard widget
+$dash_widget = "\n";
+$dash_widget .= "<table class='$plugin dashboard'><thead><tr><td></td>\n";
+$dash_widget .= "<td colspan='$cols'><span class='icon'><i class='fa fa-$icon' style='color:$fgcolor;background-color:$bgcolor;'></i></span><span class='title'>$title</span>\n";
+$dash_widget .= "<span class='title'><span class='esphomepm-current-power'>0</span> W</span>\n";
+$dash_widget .= "<a href='/Settings/ESPHomePMSettings' title='Settings'><i class='fa fa-fw fa-cog control'></i></a>\n";
+$dash_widget .= "</td></tr></thead>\n";
+$dash_widget .= "<tbody>\n";
+$dash_widget .= "<tr><td></td>\n";
+$dash_widget .= "<td>Daily Power: <span class='esphomepm-energy-today'>0.00</span> kWh</td>\n";
+$dash_widget .= "<td>Daily Cost: <span class='esphomepm-costs_today'>0.00</span> $costs_unit</td>\n";
+$dash_widget .= "</tr>\n";
+$dash_widget .= "<tr><td></td>\n";
+$dash_widget .= "<td>Monthly Power: <span class='esphomepm-energy-month'>0.00</span> kWh</td>\n";
+$dash_widget .= "<td>Monthly Cost: <span class='esphomepm-costs_month'>0.00</span> $costs_unit</td>\n";
+$dash_widget .= "</tr>\n";
+$dash_widget .= "<tr><td></td>\n";
+$dash_widget .= "<td>Total Power: <span class='esphomepm-energy-total'>0.00</span> kWh</td>\n";
+$dash_widget .= "<td>Total Cost: <span class='esphomepm-costs_total'>0.00</span> $costs_unit</td>\n";
+$dash_widget .= "</tr>\n";
+$dash_widget .= "<tr><td></td>\n";
+$dash_widget .= "<td colspan='$cols'>Average Daily Power: <span class='esphomepm-avg-power'>0</span> W</td>\n";
+$dash_widget .= "</tr>\n";
+$dash_widget .= "</tbody></table>\n";
+
+// Output the dashboard widget
+echo $dash_widget;
 ?>
 
 <style>
-    .esphomepm-highlight {
-        font-weight: bold;
-        color: #F57C00;
-    }
-    .fa-bolt {
-        color: #F57C00;
-    }
-    .power-stats {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .power-stats td {
-        padding: 2px 5px;
-    }
-    .power-stats td:nth-child(odd) {
-        font-weight: normal;
-        text-align: right;
-    }
-    .power-stats td:nth-child(even) {
-        font-weight: bold;
-        text-align: left;
-    }
+.esphomepm-current-power, .esphomepm-costs_today, .esphomepm-costs_month, .esphomepm-costs_total {
+    font-weight: bold;
+    color: #F57C00;
+}
 </style>
 
 <script>
