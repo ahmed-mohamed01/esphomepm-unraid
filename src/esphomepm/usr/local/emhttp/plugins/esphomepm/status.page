@@ -1,48 +1,66 @@
-Menu="Dashboard"
-Type="xmenu"
+Menu="Dashboard:4"
+Title="ESPHome Power Monitor"
+Icon="bolt"
 ---
 <?php
     require_once("/usr/local/emhttp/plugins/esphomepm/include/functions.php");
     $config = esphomepm_load_config();
     $costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
-    
-    // Create the dashboard tile content
-    $mytiles['esphomepm']['column1'] = 
-<<<EOT
-<tbody class="esphomepm" title="ESPHome Power Monitor">
-    <tr>
-        <td><i class='fa fa-bolt' style='color:#F57C00'></i><div style='display:inline-block;margin-left:10px'>_(ESPHome Power Monitor)_<br>
-        <span>_(Current Power)_: <span class='esphomepm-current-power' style='font-weight:bold;color:#F57C00'>0</span> W</span></div>
-        <a href='/Settings/ESPHomePMSettings' title="_(Go to ESPHome Power Monitor settings)_"><i class='fa fa-fw fa-cog control'></i></a>
-        </td>
-    </tr>
-    <tr>
-        <td>
-            <table class='disk_status wide'>
-                <tr>
-                    <td>_(Daily Power)_:</td>
-                    <td><span class='esphomepm-energy-today'>0.00</span> kWh</td>
-                    <td>_(Daily Cost)_:</td>
-                    <td><span style='font-weight:bold;color:#F57C00' class='esphomepm-costs_today'>0.00</span> $costs_unit</td>
-                </tr>
-                <tr>
-                    <td>_(Monthly Power)_:</td>
-                    <td><span class='esphomepm-energy-month'>0.00</span> kWh</td>
-                    <td>_(Monthly Cost)_:</td>
-                    <td><span style='font-weight:bold;color:#F57C00' class='esphomepm-costs_month'>0.00</span> $costs_unit</td>
-                </tr>
-                <tr>
-                    <td>_(Total Power)_:</td>
-                    <td><span class='esphomepm-energy-total'>0.00</span> kWh</td>
-                    <td>_(Total Cost)_:</td>
-                    <td><span style='font-weight:bold;color:#F57C00' class='esphomepm-costs_total'>0.00</span> $costs_unit</td>
-                </tr>
-            </table>
-        </td>
-    </tr>
-</tbody>
-EOT;
 ?>
+
+<style>
+    .dash_esphomepm .header {
+        font-weight: bold;
+    }
+    .dash_esphomepm .value {
+        font-weight: bold;
+        color: #F57C00;
+    }
+    .dash_esphomepm .fa-bolt {
+        color: #F57C00;
+    }
+</style>
+
+<table class='dash_esphomepm dashboard'>
+    <thead><tr><td></td><td></td><td></td><td></td><td></td></tr></thead>
+    <tbody>
+        <tr>
+            <td></td>
+            <td colspan='3' class='next'>
+                <i class='fa fa-bolt'></i>
+                <div style='display:inline-block;margin-left:10px'>
+                    <span class='header'>_(ESPHome Power Monitor)_</span><br>
+                    <span>_(Current Power)_: <span class='value esphomepm-current-power'>0</span> W</span>
+                </div>
+                <a href='/Settings/ESPHomePMSettings' title="_(Go to ESPHome Power Monitor settings)_"><i class='fa fa-fw fa-cog control'></i></a>
+            </td>
+            <td></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td>
+                <span>_(Daily Power)_:</span><br>
+                <span>_(Monthly Power)_:</span><br>
+                <span>_(Total Power)_:</span>
+            </td>
+            <td>
+                <span class='esphomepm-energy-today'>0.00</span> kWh<br>
+                <span class='esphomepm-energy-month'>0.00</span> kWh<br>
+                <span class='esphomepm-energy-total'>0.00</span> kWh
+            </td>
+            <td>
+                <span>_(Daily Cost)_:</span><br>
+                <span>_(Monthly Cost)_:</span><br>
+                <span>_(Total Cost)_:</span>
+            </td>
+            <td>
+                <span class='value esphomepm-costs_today'>0.00</span> <?=$costs_unit?><br>
+                <span class='value esphomepm-costs_month'>0.00</span> <?=$costs_unit?><br>
+                <span class='value esphomepm-costs_total'>0.00</span> <?=$costs_unit?>
+            </td>
+        </tr>
+    </tbody>
+</table>
 <script>
 // Update ESPHome Power Monitor dashboard widget
 function esphomepm_status() {
