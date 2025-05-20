@@ -4,15 +4,26 @@ Menu="Dashboard:0"
 // Define plugin name and other variables
 $pluginname = "ESPHome Power Monitor";
 
+// Load configuration to get cost unit
+require_once '/usr/local/emhttp/plugins/esphomepm/include/functions.php';
+$config = esphomepm_load_config();
+$costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
+
 // Create the dashboard widget content
 $mytiles['esphomepm']['column2'] = <<<EOT
 <tbody id="esphomepm" title="$pluginname">
 <tr>
     <td><img src="/plugins/esphomepm/images/esphomepm.png" class="f32" style="width:32px; height:32px;">
-        <div class='section'>$pluginname<span><br>Hello from Power Monitor!</span></div>
+        <div class='section'>$pluginname<span><br>
+            <span style="display:inline-block; margin-right:10px;">Power Today: <span class="esphomepm-energy-today" style="font-weight:bold;">0.00</span> kWh</span>
+            <span style="display:inline-block;">Daily Cost: <span class="esphomepm-costs_today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</span>
+        </span></div>
         <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a>
     </td>
 </tr>
 </tbody>
 EOT;
+
+// Include the JavaScript for updating the dashboard widget
+echo esphomepm_get_dashboard_javascript();
 ?>
