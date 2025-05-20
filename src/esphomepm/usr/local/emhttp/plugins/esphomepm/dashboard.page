@@ -9,32 +9,7 @@ require_once '/usr/local/emhttp/plugins/esphomepm/include/functions.php';
 $config = esphomepm_load_config();
 $costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 
-// Create the expanded view with three columns
-$esphomepm_expanded = <<<EOT
-<div id='esphomepm_expanded' style='display:none'>
-    <div style='margin-top:10px;'>
-        <table class='esphomepm_table'>
-            <tr>
-                <td style='width:33%; text-align:center;'><b>Today:</b></td>
-                <td style='width:33%; text-align:center;'><b>Month:</b></td>
-                <td style='width:33%; text-align:center;'><b>Total:</b></td>
-            </tr>
-            <tr>
-                <td style='text-align:center;'><i class='fa fa-bolt'></i> <span class='esphomepm-energy-today' style='font-weight:bold;'>0.000</span> kWh</td>
-                <td style='text-align:center;'><i class='fa fa-bolt'></i> <span class='esphomepm-energy-month' style='font-weight:bold;'>0.000</span> kWh</td>
-                <td style='text-align:center;'><i class='fa fa-bolt'></i> <span class='esphomepm-energy-total' style='font-weight:bold;'>0.000</span> kWh</td>
-            </tr>
-            <tr>
-                <td style='text-align:center;'><i class='fa fa-dollar-sign'></i> <span class='esphomepm-costs_today' style='font-weight:bold; color:#F57C00;'>0.00</span> $costs_unit</td>
-                <td style='text-align:center;'><i class='fa fa-dollar-sign'></i> <span class='esphomepm-costs_month' style='font-weight:bold; color:#F57C00;'>0.00</span> $costs_unit</td>
-                <td style='text-align:center;'><i class='fa fa-dollar-sign'></i> <span class='esphomepm-costs_total' style='font-weight:bold; color:#F57C00;'>0.00</span> $costs_unit</td>
-            </tr>
-        </table>
-    </div>
-</div>
-EOT;
-
-// Create the dashboard widget content - collapsed view
+// Create the dashboard widget content
 $mytiles['esphomepm']['column2'] = <<<EOT
 <tbody id="esphomepm" title="$pluginname">
 <tr>
@@ -48,8 +23,28 @@ $mytiles['esphomepm']['column2'] = <<<EOT
         <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a>
     </td>
 </tr>
+<tr class="esphomepm-expanded" style="display:none;">
+    <td colspan="2">
+        <table class="esphomepm-stats" style="margin-top:8px; width:100%;">
+            <tr>
+                <td style="width:33%; text-align:center;"><b>Today</b></td>
+                <td style="width:33%; text-align:center;"><b>Month</b></td>
+                <td style="width:33%; text-align:center;"><b>Total</b></td>
+            </tr>
+            <tr>
+                <td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-today" style="font-weight:bold;">0.000</span> kWh</td>
+                <td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-month" style="font-weight:bold;">0.000</span> kWh</td>
+                <td style="text-align:center;"><i class="fa fa-bolt"></i> <span class="esphomepm-energy-total" style="font-weight:bold;">0.000</span> kWh</td>
+            </tr>
+            <tr>
+                <td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs_today" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
+                <td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs_month" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
+                <td style="text-align:center;"><i class="fa fa-dollar-sign"></i> <span class="esphomepm-costs_total" style="font-weight:bold; color:#F57C00;">0.00</span> $costs_unit</td>
+            </tr>
+        </table>
+    </td>
+</tr>
 </tbody>
-$esphomepm_expanded
 EOT;
 
 // Include the JavaScript for updating the dashboard widget
@@ -61,7 +56,7 @@ echo esphomepm_get_dashboard_javascript();
 $(function() {
     // Setup click handler for expanding/collapsing the widget
     $('#esphomepm').on('click', function() {
-        $('#esphomepm_expanded').toggle();
+        $('.esphomepm-expanded').toggle();
     });
     
     // Helper function to update status dot
