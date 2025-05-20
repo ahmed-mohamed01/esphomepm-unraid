@@ -8,7 +8,7 @@ $pluginname = "ESPHome Power Monitor";
 $mytiles['esphomepm']['column2'] = <<<EOT
 <tbody id="esphomepm" title="$pluginname">
 <tr>
-    <td><i class='fa fa-bolt f32' style="color:#F57C00"></i>
+    <td><img src="/plugins/esphomepm/images/esphomepm.png" class="f32" style="width:32px; height:32px;">
         <div class='section'>$pluginname<span><br>Hello from Power Monitor!</span></div>
         <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a>
     </td>
