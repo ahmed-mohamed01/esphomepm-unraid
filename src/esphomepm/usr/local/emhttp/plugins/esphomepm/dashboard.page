@@ -1,24 +1,18 @@
-Menu="Dashboard:4"
+Menu="Dashboard:0"
 ---
 <?php
-// Simple dashboard widget for debugging purposes
+// Define plugin name and other variables
 $pluginname = "ESPHome Power Monitor";
 
-// Create a simple dashboard widget content
-$dashboard_content = <<<EOT
-<tbody title="$pluginname">
-    <tr>
-        <td><i class="fa fa-bolt" style="color:#F57C00"></i></td>
-        <td colspan="3" class="next">
-            <span>$pluginname</span>
-            <br>
-            <span>Hello from Power Monitor!</span>
-        </td>
-        <td><a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a></td>
-    </tr>
+// Create the dashboard widget content
+$mytiles['esphomepm']['column2'] = <<<EOT
+<tbody id="esphomepm" title="$pluginname">
+<tr>
+    <td><i class='fa fa-bolt f32' style="color:#F57C00"></i>
+        <div class='section'>$pluginname<span><br>Hello from Power Monitor!</span></div>
+        <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a>
+    </td>
+</tr>
 </tbody>
 EOT;
-
-// Add the dashboard widget to the mytiles array
-$mytiles['esphomepm']['column1'] = $dashboard_content;
 ?>
