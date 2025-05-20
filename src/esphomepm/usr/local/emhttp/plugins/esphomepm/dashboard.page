@@ -4,17 +4,95 @@ Menu="Dashboard:0"
 // Define plugin name and other variables
 $pluginname = "ESPHome Power Monitor";
 
-// Create the dashboard widget content - absolute minimum
-$mytiles['esphomepm']['column2'] = <<<EOT
-<tbody id="esphomepm" title="$pluginname">
-<tr>
-    <td><i class="fa fa-plug f32" style="color:#FFFFFF;"></i>
-        <div class='section'>$pluginname<span><br>
-            Power Monitor Dashboard
-        </span></div>
-        <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings"><i class="fa fa-fw fa-cog control"></i></a>
-    </td>
-</tr>
-</tbody>
-EOT;
+// Load configuration
+require_once '/usr/local/emhttp/plugins/esphomepm/include/functions.php';
+$config = esphomepm_load_config();
+$costs_unit = isset($config['COSTS_UNIT']) ? $config['COSTS_UNIT'] : "GBP";
 ?>
+
+<style type="text/css">
+    #dash_esphomepm_settings i, #esphomepm_view {margin-top:0px;}
+</style>
+
+<table id='db-box1' class='dash_esphomepm dashboard box1' style="display:none">
+    <thead sort='1'>
+        <tr class='hidden'>
+            <td></td>
+            <td colspan='3'></td>
+            <td></td>
+        </tr>
+    </thead>
+    <tbody sort='1' class='sortable'>
+        <tr>
+            <td></td>
+            <td colspan='3' class='next'>
+                <i class='fa fa-plug' style="color:#FFFFFF;"></i>
+                <div class='section'><?=$pluginname?><br><span id='load'>Usage: <span class='esphomepm-current-power'>0</span> W</span><br><br></div>
+                <i class='fa fa-fw chevron' id='esphomepm_view' onclick='toggleChevron("esphomepm_view",0)'></i>
+                <a href='/Settings/ESPHomePMSettings' title="Go to ESPHome Power Monitor settings"><i class='fa fa-fw fa-cog chevron'></i></a>
+            </td>
+            <td></td>
+
+            <tr class="esphomepm_view">
+                <td></td>
+                <td>Today:</td>
+                <td><span class="esphomepm-energy-today">0.000</span> kWh</td>
+                <td><span class="esphomepm-costs_today">0.00</span> <span class="esphomepm-costs_unit"><?=$costs_unit?></span></td>
+                <td></td>
+            </tr>
+            <tr class="esphomepm_view">
+                <td></td>
+                <td>Month:</td>
+                <td><span class="esphomepm-energy-month">0.000</span> kWh</td>
+                <td><span class="esphomepm-costs_month">0.00</span> <span class="esphomepm-costs_unit"><?=$costs_unit?></span></td>
+                <td></td>
+            </tr>
+            <tr class="esphomepm_view">
+                <td></td>
+                <td>Total:</td>
+                <td><span class="esphomepm-energy-total">0.000</span> kWh</td>
+                <td><span class="esphomepm-costs_total">0.00</span> <span class="esphomepm-costs_unit"><?=$costs_unit?></span></td>
+                <td></td>
+            </tr>
+            <tr class="esphomepm_view">
+                <td></td>
+                <td>Power</td>
+                <td colspan="2"><span class="esphomepm-current-power">0.00</span> W</td>
+                <td></td>
+            </tr>
+        </tr>
+    </tbody>
+</table>
+
+<script>
+const esphomepm_status = () => {
+    $.getJSON("/plugins/esphomepm/status.php", (data) => {
+        if (data) {
+            $(".esphomepm-current-power").html(data.power);
+            $(".esphomepm-energy-today").html(data.energy_today || data.today_energy);
+            $(".esphomepm-energy-month").html(data.energy_month || data.current_month_energy_total);
+            $(".esphomepm-energy-total").html(data.energy_total || data.overall_total_energy);
+            $(".esphomepm-costs_today").html(data.costs_today || data.daily_cost);
+            $(".esphomepm-costs_month").html(data.costs_month || data.current_month_cost_total);
+            $(".esphomepm-costs_total").html(data.costs_total || data.overall_total_cost);
+            $(".esphomepm-costs_unit").html(data.costs_unit || "<?=$costs_unit?>");
+        }
+    });
+};
+
+$(esphomepm_status);
+setInterval(esphomepm_status, 10000); // Update every 10 seconds
+
+$(function() {
+    // append data from the table into the correct one
+    $("#db-box1").append($(".dash_esphomepm").html());
+    
+    // reload toggle to get the correct state
+    toggleView('esphomepm_view', true);
+    
+    // reload sorting to get the stored data (cookie)
+    if (typeof sortTable === 'function') {
+        sortTable($('#db-box1'), $.cookie('db-box1'));
+    }
+});
+</script>

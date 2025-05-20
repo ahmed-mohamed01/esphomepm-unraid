@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.05.20.26">
+<!ENTITY version   "2025.05.20.27">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/esphome-wip">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,11 +14,17 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.05.20.27
 ###2025.05.20.26
 ###2025.05.20.25
 ###2025.05.20.26
 - Implemented dashboard widget using LXC-style layout function
 - Fixed expanded view implementation
+
+###2025.05.20.27
+- Reimplemented dashboard widget using TasmotaPM-style HTML structure
+- Added expandable view with toggle functionality
+- Fixed dashboard display issues
 
 ###2025.05.20.25
 - Simplified dashboard widget to minimal version for troubleshooting
