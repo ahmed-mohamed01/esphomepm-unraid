@@ -97,7 +97,13 @@ $overall_total_cost += $daily_cost;
 $day_of_month = (int)date('j');
 $average_daily_energy = $day_of_month ? round($current_month_energy_total / $day_of_month, 3) : 0.0;
 
+$now = new DateTime();
+$midnight = new DateTime('today');
+$elapsed = $now->getTimestamp() - $midnight->getTimestamp();
+$hours_elapsed = $elapsed > 0 ? $elapsed / 3600 : 1;
+$avg_power = ($daily_energy * 1000) / $hours_elapsed;
 $response = esphomepm_build_summary($config);
+$response['avg_power'] = round($avg_power);  // Watts
 echo json_encode($response);
 exit;
 ?>

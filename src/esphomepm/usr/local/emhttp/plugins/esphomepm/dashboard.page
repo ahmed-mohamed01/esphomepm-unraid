@@ -29,14 +29,16 @@ $mytiles['esphomepm']['column1'] = <<<HTML
 <!-- 3×3 summary – CSS grid, not a table -->
 <tr><td>
   <div class="esphomepm-grid">
-    <div></div>                       <div>Day</div>   <div>Month</div> <div>Total</div>
+    <div></div><div></div><div>Day:</div><div>Month:</div><div>Total:</div>
 
-    <div class="rowlabel">Energy (kWh)</div>
+    <div class="rowlabel">Start date:</div>
+    <div class="esphomepm-monitoring-date">--</div>
     <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-day">--</span> kWh</div>
     <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-month">--</span> kWh</div>
     <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-total">--</span> kWh</div>
 
-    <div class="rowlabel">Cost (<span class="esphomepm-cost-unit">$currencyUnit</span>)</div>
+    <div class="rowlabel">Average Power:</div>
+    <div class="esphomepm-avg-power">-- W</div>
     <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-day">--</span> $currencyUnit</div>
     <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-month">--</span> $currencyUnit</div>
     <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-total">--</span> $currencyUnit</div>
@@ -53,13 +55,15 @@ HTML;
 /* grid that mimics a 3×3 table but avoids extra <tbody> */
 .esphomepm-grid{
   display:grid;
-  grid-template-columns:1fr 1fr 1fr 1fr;
+  grid-template-columns:auto auto 1fr 1fr 1fr;
   row-gap:4px; column-gap:6px;
   font-size:.9em;
   justify-items:center;
 }
 .esphomepm-grid .rowlabel{font-weight:600;text-align:left; justify-self:start;}
-.esphomepm-grid>div:nth-child(-n+4){font-weight:600;}     /* header row */
+.esphomepm-grid>div:nth-child(-n+5){font-weight:600;}     /* header row */
+.esphomepm-monitoring-date{justify-self:start;}
+.esphomepm-avg-power{justify-self:start;}
 </style>
 
 <script>
@@ -71,15 +75,14 @@ $(function(){
       if(!data)return;
 
       $('.esphomepm-current-power').text( fmt(data.power,0) );
-
-      $('.esphomepm-energy-day')  .text( fmt(data.today_energy,3) );
-      $('.esphomepm-energy-month').text( fmt(data.current_month_energy_total ??
-                                             data.current_month_energy_completed_days,3) );
-      $('.esphomepm-energy-total').text( fmt(data.overall_total_energy,3) );
+      $('.esphomepm-monitoring-date').text(data.monitoring_start_date);
+      $('.esphomepm-avg-power').text(fmt(data.power,0)+' W');
+      $('.esphomepm-energy-day')  .text(fmt(data.today_energy,3));
+      $('.esphomepm-energy-month').text(fmt(data.current_month_energy_total ?? data.current_month_energy_completed_days,3));
+      $('.esphomepm-energy-total').text(fmt(data.overall_total_energy,3));
 
       $('.esphomepm-cost-day')  .text( fmt(data.daily_cost,2) );
-      $('.esphomepm-cost-month').text( fmt(data.current_month_cost_total ??
-                                           data.monthly_cost_est,2) );
+      $('.esphomepm-cost-month').text( fmt(data.current_month_cost_total ?? data.monthly_cost_est,2) );
       $('.esphomepm-cost-total').text( fmt(data.overall_total_cost,2) );
 
       if(data.cost_unit) $('.esphomepm-cost-unit').text(data.cost_unit);
