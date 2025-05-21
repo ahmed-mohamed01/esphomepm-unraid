@@ -50,8 +50,8 @@ HTML;
 ?>
 
 <style>
-.esphomepm-energy-icon { color: #0084C6; }
-.esphomepm-cost-icon { color: #EA5200; }
+.esphomepm-energy-icon { color:rgba(0, 132, 198, 0.6); }
+.esphomepm-cost-icon { color:rgb(242, 102, 27); }
 /* grid that mimics a 3×3 table but avoids extra <tbody> */
 .esphomepm-grid{
   display:grid;
