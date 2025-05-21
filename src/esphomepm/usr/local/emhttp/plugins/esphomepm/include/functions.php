@@ -407,3 +407,28 @@ EOT;
     
     return $js;
 }
+
+/**
+ * Initialize a plugin script:
+ *  - set up error logging for specified component
+ *  - optionally send JSON headers
+ *  - load and return the config array
+ */
+function esphomepm_init_script(string $component, bool $jsonResponse = false): array {
+    esphomepm_setup_error_logging($component);
+    if ($jsonResponse) {
+        esphomepm_set_json_headers();
+    }
+    return esphomepm_load_config();
+}
+
+/**
+ * Helper wrappers for status.php moved from inline definitions
+ */
+function esphomepm_get_sensor_value($sensor, $device_ip, $timeout = 2) {
+    return esphomepm_fetch_sensor_data($device_ip, $sensor, $timeout, true);
+}
+
+function esphomepm_load_historical_data() {
+    return esphomepm_load_json_data(ESPHOMPM_DATA_FILE);
+}

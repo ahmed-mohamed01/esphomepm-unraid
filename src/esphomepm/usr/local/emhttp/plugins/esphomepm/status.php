@@ -2,14 +2,8 @@
 // Include common functions
 require_once __DIR__ . '/include/functions.php';
 
-// Set up error logging for this component
-esphomepm_setup_error_logging('status');
-
-// Set content type to JSON
-esphomepm_set_json_headers();
-
-// Load configuration
-$config = esphomepm_load_config();
+// Initialize script (error logging, JSON headers) and load config
+$config = esphomepm_init_script('status', true);
 
 // Initialize config variables with defaults
 $device_ip = $config['DEVICE_IP'] ?? "";
@@ -18,11 +12,6 @@ $costs_unit = $config['COSTS_UNIT'] ?? "";
 $power_sensor_path = $config['POWER_SENSOR_PATH'] ?? 'power';
 $daily_energy_sensor_path = $config['DAILY_ENERGY_SENSOR_PATH'] ?? 'daily_energy';
 
-// Function to get sensor value with retry and error handling - wrapper around the common function
-function getSensorValue($sensor, $device_ip, $timeout = 2) {
-    return esphomepm_fetch_sensor_data($device_ip, $sensor, $timeout, true);
-}
-
 // Handle graph point request
 if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
     if (empty($device_ip)) {
@@ -30,14 +19,9 @@ if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
         echo json_encode(['power' => 0, 'error' => 'ESPHome Device IP missing']);
         exit;
     }
-    $power_data = getSensorValue("power", $device_ip, 1); // Shorter timeout for graph point
+    $power_data = esphomepm_get_sensor_value("power", $device_ip, 1); // Shorter timeout for graph point
     echo json_encode(['power' => $power_data['value'], 'error' => $power_data['error']]);
     exit;
-}
-
-// Function to load historical data from JSON file - wrapper around the common function
-function load_historical_data() {
-    return esphomepm_load_json_data(ESPHOMPM_DATA_FILE);
 }
 
 // Standard data request logic
@@ -55,8 +39,8 @@ if (empty($device_ip)) {
 // --- Fetch data from ESPHome device for standard request ---
 $error_messages = [];
 
-$power_result = getSensorValue($power_sensor_path, $device_ip);
-$daily_energy_result = getSensorValue($daily_energy_sensor_path, $device_ip);
+$power_result = esphomepm_get_sensor_value($power_sensor_path, $device_ip);
+$daily_energy_result = esphomepm_get_sensor_value($daily_energy_sensor_path, $device_ip);
 
 $power = 0;
 if (isset($power_result['value'])) {
@@ -79,7 +63,7 @@ $costs_price_numeric = is_numeric($costs_price) ? (float)$costs_price : 0.0; // 
 $daily_cost = $daily_energy * $costs_price_numeric;
 
 // --- Load historical data ---
-$historical_data = load_historical_data();
+$historical_data = esphomepm_load_historical_data();
 $historical_data_available = ($historical_data !== null);
 
 // Default values for historical data
@@ -127,6 +111,10 @@ $current_month_cost_total = $current_month_cost_completed_days + $daily_cost;
 $overall_total_energy += $daily_energy;
 $overall_total_cost += $daily_cost;
 
+// Calculate average daily energy consumption
+$day_of_month = (int)date('j');
+$average_daily_energy = $day_of_month ? round($current_month_energy_total / $day_of_month, 3) : 0.0;
+
 // Prepare response
 $response_data = [
     // Live data
@@ -144,6 +132,9 @@ $response_data = [
     'current_month_energy_total' => round($current_month_energy_total, 3), // Including today
     'current_month_cost_total' => round($current_month_cost_total, 2),    // Including today
     
+    // Average daily consumption
+    'average_daily_energy' => $average_daily_energy,
+
     // Add current month object for history display
     'current_month' => [
         'month_year' => isset($historical_data['current_month']['month_year']) ? $historical_data['current_month']['month_year'] : date('Y-m'),
