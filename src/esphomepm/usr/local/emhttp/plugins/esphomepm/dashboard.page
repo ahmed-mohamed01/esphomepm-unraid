@@ -19,7 +19,10 @@ $mytiles['esphomepm']['column1'] = <<<HTML
 <tr><td>
   <i class="fa fa-plug icon"></i>
   <div class="section">$pluginname</div>
-  <div class="section"><span class="esphomepm-current-power">--</span></div>
+  <div class="section esphomepm-headline-summary">
+    This server has cost you $<span class="esphomepm-cost-total-head">--</span>
+    (<span class="esphomepm-energy-total-head">--</span> kWh since <span class="esphomepm-monitoring-date-head">--</span>)
+  </div>
   <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings">
     <i class="fa fa-fw fa-cog control"></i>
   </a>
@@ -75,16 +78,18 @@ $(function(){
 
       $('.esphomepm-monitoring-date').text(data.monitoring_start_date);
       $('.esphomepm-avg-power').text(fmt(data.power,0)+' W');
-      $('.esphomepm-energy-day')  .text(fmt(data.today_energy,3));
+      $('.esphomepm-energy-day').text(fmt(data.today_energy,3));
       $('.esphomepm-energy-month').text(fmt(data.current_month_energy_total ?? data.current_month_energy_completed_days,3));
       $('.esphomepm-energy-total').text(fmt(data.overall_total_energy,3));
 
-      $('.esphomepm-cost-day')  .text( fmt(data.daily_cost,2) );
-      $('.esphomepm-cost-month').text( fmt(data.current_month_cost_total ?? data.monthly_cost_est,2) );
-      $('.esphomepm-cost-total').text( fmt(data.overall_total_cost,2) );
+      $('.esphomepm-cost-day').text(fmt(data.daily_cost,2));
+      $('.esphomepm-cost-month').text(fmt(data.current_month_cost_total ?? data.monthly_cost_est,2));
+      $('.esphomepm-cost-total').text(fmt(data.overall_total_cost,2));
 
-      // header summary in default power span
-      $('.esphomepm-current-power').text(`This server has cost you $${fmt(data.overall_total_cost,2)} (${fmt(data.overall_total_energy,3)} kWh since ${data.monitoring_start_date})`);
+      // populate headline summary spans
+      $('.esphomepm-cost-total-head').text(fmt(data.overall_total_cost,2));
+      $('.esphomepm-energy-total-head').text(fmt(data.overall_total_energy,3));
+      $('.esphomepm-monitoring-date-head').text(data.monitoring_start_date);
 
       if(data.cost_unit) $('.esphomepm-cost-unit').text(data.cost_unit);
     });
