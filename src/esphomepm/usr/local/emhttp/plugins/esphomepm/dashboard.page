@@ -18,10 +18,12 @@ $mytiles['esphomepm']['column1'] = <<<HTML
 <!-- headline (row-1) -->
 <tr><td>
   <i class="fa fa-plug icon"></i>
-  <div class="section">$pluginname</div>
-  <div class="section esphomepm-headline-summary">
-    This server has cost you $<span class="esphomepm-cost-total-head">--</span>
-    (<span class="esphomepm-energy-total-head">--</span> kWh since <span class="esphomepm-monitoring-date-head">--</span>)
+  <div class="section">
+    $pluginname<br>
+    <span class="esphomepm-summary-text">
+      This server has cost you $<span class="esphomepm-cost-total-head">--</span>
+      (<span class="esphomepm-energy-total-head">--</span> kWh) since <span class="esphomepm-monitoring-date-head">--</span>
+    </span>
   </div>
   <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings">
     <i class="fa fa-fw fa-cog control"></i>
