@@ -1,4 +1,5 @@
 Menu="Dashboard:0"
+Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'7.0.0','>=') && !empty(parse_ini_file('/boot/config/plugins/esphomepm/esphomepm.cfg')['DEVICE_IP'])"
 ---
 <?php
 /*  ESPHome Power Monitor – Dashboard tile
