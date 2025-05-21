@@ -32,14 +32,14 @@ $mytiles['esphomepm']['column1'] = <<<HTML
     <div></div>                       <div>Day</div>   <div>Month</div> <div>Total</div>
 
     <div class="rowlabel">Energy (kWh)</div>
-    <div class="esphomepm-energy-day">--</div>
-    <div class="esphomepm-energy-month">--</div>
-    <div class="esphomepm-energy-total">--</div>
+    <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-day">--</span> kWh</div>
+    <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-month">--</span> kWh</div>
+    <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-total">--</span> kWh</div>
 
     <div class="rowlabel">Cost (<span class="esphomepm-cost-unit">$currencyUnit</span>)</div>
-    <div class="esphomepm-cost-day">--</div>
-    <div class="esphomepm-cost-month">--</div>
-    <div class="esphomepm-cost-total">--</div>
+    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-day">--</span> $currencyUnit</div>
+    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-month">--</span> $currencyUnit</div>
+    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-total">--</span> $currencyUnit</div>
   </div>
 </td></tr>
 
@@ -48,15 +48,17 @@ HTML;
 ?>
 
 <style>
+.esphomepm-energy-icon { color: #0084C6; }
+.esphomepm-cost-icon { color: #EA5200; }
 /* grid that mimics a 3×3 table but avoids extra <tbody> */
 .esphomepm-grid{
   display:grid;
   grid-template-columns:1fr 1fr 1fr 1fr;
   row-gap:4px; column-gap:6px;
-  font-size:.9em; text-align:center;
-  margin-top:6px;
+  font-size:.9em;
+  justify-items:center;
 }
-.esphomepm-grid .rowlabel{font-weight:600;text-align:left;}
+.esphomepm-grid .rowlabel{font-weight:600;text-align:left; justify-self:start;}
 .esphomepm-grid>div:nth-child(-n+4){font-weight:600;}     /* header row */
 </style>
 
