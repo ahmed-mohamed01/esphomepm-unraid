@@ -1,18 +1,14 @@
 <?php
-// Include common functions
 require_once __DIR__ . '/include/functions.php';
 
-// Initialize script (error logging, JSON headers) and load config
 $config = esphomepm_init_script('status', true);
 
-// Initialize config variables with defaults
 $device_ip = $config['DEVICE_IP'] ?? "";
 $costs_price = $config['COSTS_PRICE'] ?? 0.0;
 $costs_unit = $config['COSTS_UNIT'] ?? "";
 $power_sensor_path = $config['POWER_SENSOR_PATH'] ?? 'power';
 $daily_energy_sensor_path = $config['DAILY_ENERGY_SENSOR_PATH'] ?? 'daily_energy';
 
-// Handle graph point request
 if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
     if (empty($device_ip)) {
         esphomepm_log_error("Graph point request with missing device IP", 'WARNING', 'status');
@@ -24,7 +20,6 @@ if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
     exit;
 }
 
-// Standard data request logic
 if (empty($device_ip)) {
     echo json_encode([
         'power' => 0, 'today_energy' => 0,
@@ -36,7 +31,6 @@ if (empty($device_ip)) {
     exit;
 }
 
-// --- Fetch data from ESPHome device for standard request ---
 $error_messages = [];
 
 $power_result = esphomepm_get_sensor_value($power_sensor_path, $device_ip);
@@ -58,15 +52,12 @@ if (isset($daily_energy_result['error']) && $daily_energy_result['error'] !== nu
     $error_messages[] = "Daily Energy: " . $daily_energy_result['error'];
 }
 
-// Calculations
 $costs_price_numeric = is_numeric($costs_price) ? (float)$costs_price : 0.0; // Ensure costs_price is numeric
 $daily_cost = $daily_energy * $costs_price_numeric;
 
-// --- Load historical data ---
 $historical_data = esphomepm_load_historical_data();
 $historical_data_available = ($historical_data !== null);
 
-// Default values for historical data
 $current_month_energy_completed_days = 0.0;
 $current_month_cost_completed_days = 0.0;
 $historical_months = [];
@@ -74,9 +65,7 @@ $overall_total_energy = 0.0;
 $overall_total_cost = 0.0;
 $monitoring_start_date = date('Y-m-d'); // Default to today if no historical data
 
-// Extract historical data if available
 if ($historical_data_available) {
-    // Current month completed days (excluding today)
     if (isset($historical_data['current_month']['total_energy_kwh_completed_days'])) {
         $current_month_energy_completed_days = (float)$historical_data['current_month']['total_energy_kwh_completed_days'];
     }
@@ -84,12 +73,10 @@ if ($historical_data_available) {
         $current_month_cost_completed_days = (float)$historical_data['current_month']['total_cost_completed_days'];
     }
     
-    // Historical months
     if (isset($historical_data['historical_months']) && is_array($historical_data['historical_months'])) {
         $historical_months = $historical_data['historical_months'];
     }
     
-    // Overall totals
     if (isset($historical_data['overall_totals']['total_energy_kwh_all_time'])) {
         $overall_total_energy = (float)$historical_data['overall_totals']['total_energy_kwh_all_time'];
     }
@@ -101,21 +88,15 @@ if ($historical_data_available) {
     }
 }
 
-// Calculate current month totals including today's values
 $current_month_energy_total = $current_month_energy_completed_days + $daily_energy;
 $current_month_cost_total = $current_month_cost_completed_days + $daily_cost;
 
-// Update overall totals to include today's values
-// The values from the data file only include completed days up to midnight the previous day
-// We need to add today's energy and cost to get the current up-to-date totals
 $overall_total_energy += $daily_energy;
 $overall_total_cost += $daily_cost;
 
-// Calculate average daily energy consumption
 $day_of_month = (int)date('j');
 $average_daily_energy = $day_of_month ? round($current_month_energy_total / $day_of_month, 3) : 0.0;
 
-// Build and output unified summary
 $response = esphomepm_build_summary($config);
 echo json_encode($response);
 exit;

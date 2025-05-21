@@ -251,71 +251,42 @@ function esphomepm_set_json_headers() {
 }
 
 /**
- * Log cron job execution details to the cron log file
+ * Simplified cron job logging
  * 
  * @param array $data The data to log (previous day's energy, current totals, etc.)
  * @return bool True on success, false on failure
  */
-function esphomepm_log_cron_execution($data) {
-    $timestamp = date('Y-m-d H:i:s');
-    $date = date('Y-m-d');
-    
-    // Format the log entry
-    $log_entry = "[$timestamp] Daily Update\n";
-    
-    // Include retry information if available
-    if (isset($data['retry_count'])) {
-        $log_entry .= "Attempt: " . ($data['retry_count'] > 0 ? "Retry #{$data['retry_count']}" : "Initial") . "\n";
+function esphomepm_log_cron_execution(array $data): bool {
+    $lines = [];
+    $ts = date('Y-m-d H:i:s');
+    $lines[] = "[$ts] Daily Update";
+    $attempt = $data['retry_count'] ?? 0;
+    $lines[] = 'Attempt: ' . ($attempt > 0 ? "Retry #$attempt" : 'Initial');
+    $lines[] = 'Date: ' . ($data['target_date'] ?? date('Y-m-d'));
+
+    $labels = [
+        'yesterday_energy' => "Yesterday's Energy: %s kWh",
+        'yesterday_cost'   => "Yesterday's Cost: %s {$data['cost_unit']}",
+        'month_energy'     => "Current Month Energy: %s kWh",
+        'month_cost'       => "Current Month Cost: %s {$data['cost_unit']}",
+        'total_energy'     => "Total Energy: %s kWh",
+        'total_cost'       => "Total Cost: %s {$data['cost_unit']}",
+    ];
+    foreach ($labels as $key => $fmt) {
+        $val = $data[$key] ?? 'Not available';
+        $lines[] = sprintf($fmt, $val);
     }
-    
-    // Include target date if available, otherwise use current date
-    $log_entry .= "Date: " . (isset($data['target_date']) ? $data['target_date'] : $date) . "\n";
-    
-    if (isset($data['yesterday_energy'])) {
-        $log_entry .= "Yesterday's Energy: {$data['yesterday_energy']} kWh\n";
-    } else {
-        $log_entry .= "Yesterday's Energy: Not available\n";
-    }
-    
-    if (isset($data['yesterday_cost'])) {
-        $log_entry .= "Yesterday's Cost: {$data['yesterday_cost']} {$data['cost_unit']}\n";
-    } else {
-        $log_entry .= "Yesterday's Cost: Not available\n";
-    }
-    
-    if (isset($data['month_energy'])) {
-        $log_entry .= "Current Month Energy: {$data['month_energy']} kWh\n";
-    }
-    
-    if (isset($data['month_cost'])) {
-        $log_entry .= "Current Month Cost: {$data['month_cost']} {$data['cost_unit']}\n";
-    }
-    
-    if (isset($data['total_energy'])) {
-        $log_entry .= "Total Energy: {$data['total_energy']} kWh\n";
-    }
-    
-    if (isset($data['total_cost'])) {
-        $log_entry .= "Total Cost: {$data['total_cost']} {$data['cost_unit']}\n";
-    }
-    
-    $log_entry .= "-----------------------------------\n";
-    
-    // Ensure the directory exists
+
+    $entry = implode("\n", $lines) . "\n";
     $dir = dirname(ESPHOMPM_LOG_FILE);
-    if (!is_dir($dir)) {
-        if (!mkdir($dir, 0755, true)) {
-            esphomepm_log_error("Failed to create directory for cron log: $dir", 'ERROR', 'cron_log');
-            return false;
-        }
-    }
-    
-    // Append to the log file
-    if (file_put_contents(ESPHOMPM_LOG_FILE, $log_entry, FILE_APPEND) === false) {
-        esphomepm_log_error("Failed to write to cron log file: " . ESPHOMPM_LOG_FILE, 'ERROR', 'cron_log');
+    if (!is_dir($dir) && !mkdir($dir, 0755, true)) {
+        esphomepm_log_error("Failed to create cron log dir: $dir", 'ERROR', 'cron_log');
         return false;
     }
-    
+    if (file_put_contents(ESPHOMPM_LOG_FILE, $entry, FILE_APPEND) === false) {
+        esphomepm_log_error("Failed to write cron log: " . ESPHOMPM_LOG_FILE, 'ERROR', 'cron_log');
+        return false;
+    }
     return true;
 }
 
