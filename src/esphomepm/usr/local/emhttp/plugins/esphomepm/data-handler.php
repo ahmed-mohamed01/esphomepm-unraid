@@ -4,8 +4,8 @@
 // Include common functions
 require_once __DIR__ . '/include/functions.php';
 
-// Set up error logging for this component
-esphomepm_setup_error_logging('data_handler');
+// Initialize script (error logging) and load config
+$config = esphomepm_init_script('data_handler', false);
 
 // --- Core Logic Functions ---
 
@@ -22,17 +22,12 @@ function initialize_data_file_if_needed() {
  * @return bool True on success, false on failure
  */
 function update_power_consumption_data($retry_count = 0, $target_date = null) {
+    global $config; // use config initialized at script startup
     // If target_date is not provided, use yesterday's date (since we run at end of day)
     if ($target_date === null) {
         $target_date = date('Y-m-d'); // Today's date
     }
     
-    $config = esphomepm_load_config();
-    if (empty($config['DEVICE_IP']) || !isset($config['COSTS_PRICE'])) {
-        esphomepm_log_error("update_power_consumption_data - Missing DEVICE_IP or COSTS_PRICE in configuration.", 'ERROR', 'data_handler');
-        return false;
-    }
-
     $power_data = initialize_data_file_if_needed();
     if ($power_data === null) {
         esphomepm_log_error("Failed to load or initialize power data. Aborting update.", 'ERROR', 'data_handler');
@@ -230,11 +225,9 @@ if (basename(__FILE__) == basename($_SERVER["SCRIPT_FILENAME"])) {
     }
     
     // This allows the script to be run directly via cron or command line
-    $result = update_power_consumption_data($retry, $target_date);
+    $result = esphomepm_update_data_file($retry, $target_date);
     
     // Get the data for logging
-    $log_data = [];
-    $config = esphomepm_load_config();
     $power_data = esphomepm_load_json_data(ESPHOMPM_DATA_FILE);
     
     if ($power_data !== null) {

@@ -432,3 +432,103 @@ function esphomepm_get_sensor_value($sensor, $device_ip, $timeout = 2) {
 function esphomepm_load_historical_data() {
     return esphomepm_load_json_data(ESPHOMPM_DATA_FILE);
 }
+
+// --- Core data handling functions ---
+
+/**
+ * Fetch live sensor data & compute daily cost
+ *
+ * @param array $config Plugin configuration
+ * @return array ['power'=>float,'today_energy'=>float,'daily_cost'=>float,'errors'=>array]
+ */
+function esphomepm_get_live_data(array $config): array {
+    $power_res = esphomepm_fetch_sensor_data($config['DEVICE_IP'], $config['POWER_SENSOR_PATH'], 5, true);
+    $energy_res = esphomepm_fetch_sensor_data($config['DEVICE_IP'], $config['DAILY_ENERGY_SENSOR_PATH'], 5, true);
+    $power = isset($power_res['value']) ? (float)$power_res['value'] : 0.0;
+    $daily_energy = isset($energy_res['value']) ? (float)$energy_res['value'] : 0.0;
+    $errors = [];
+    if (!empty($power_res['error'])) $errors[] = 'Power: ' . $power_res['error'];
+    if (!empty($energy_res['error'])) $errors[] = 'Daily Energy: ' . $energy_res['error'];
+    $price = is_numeric($config['COSTS_PRICE']) ? (float)$config['COSTS_PRICE'] : 0.0;
+    $daily_cost = $daily_energy * $price;
+    return [
+        'power' => $power,
+        'today_energy' => $daily_energy,
+        'daily_cost' => round($daily_cost, 2),
+        'errors' => $errors
+    ];
+}
+
+/**
+ * Load raw historical data from JSON file
+ *
+ * @return array Historical data or empty array
+ */
+function esphomepm_get_historical_data(): array {
+    $data = esphomepm_load_json_data(ESPHOMPM_DATA_FILE);
+    return is_array($data) ? $data : [];
+}
+
+/**
+ * Build a unified response combining live & historical data
+ *
+ * @param array $config Plugin configuration
+ * @return array Response payload
+ */
+function esphomepm_build_summary(array $config): array {
+    $live = esphomepm_get_live_data($config);
+    $raw = esphomepm_get_historical_data();
+
+    // Completed-days totals
+    $cm_e = (float)($raw['current_month']['total_energy_kwh_completed_days'] ?? 0.0);
+    $cm_c = (float)($raw['current_month']['total_cost_completed_days'] ?? 0.0);
+    // Historical months
+    $hist_months = is_array($raw['historical_months'] ?? null) ? $raw['historical_months'] : [];
+    // Overall totals
+    $ot_e = (float)($raw['overall_totals']['total_energy_kwh_all_time'] ?? 0.0);
+    $ot_c = (float)($raw['overall_totals']['total_cost_all_time'] ?? 0.0);
+    $msd = $raw['overall_totals']['monitoring_start_date'] ?? date('Y-m-d');
+
+    // Include today's data
+    $cm_e_tot = $cm_e + $live['today_energy'];
+    $cm_c_tot = $cm_c + $live['daily_cost'];
+    $ot_e += $live['today_energy'];
+    $ot_c += $live['daily_cost'];
+    // Average daily energy
+    $day = (int)date('j');
+    $avg_e = $day ? round($cm_e_tot / $day, 3) : 0.0;
+
+    return [
+        'power' => $live['power'],            'today_energy' => $live['today_energy'],
+        'daily_cost' => $live['daily_cost'],
+        'costs_price' => $config['COSTS_PRICE'], 'costs_unit' => $config['COSTS_UNIT'],
+        'current_month_energy_completed_days' => round($cm_e, 3),
+        'current_month_cost_completed_days' => round($cm_c, 2),
+        'current_month_energy_total' => round($cm_e_tot, 3),
+        'current_month_cost_total' => round($cm_c_tot, 2),
+        'average_daily_energy' => $avg_e,
+        'current_month' => [
+            'month_year' => $raw['current_month']['month_year'] ?? date('Y-m'),
+            'total_energy_kwh_completed_days' => round($cm_e, 3),
+            'total_cost_completed_days' => round($cm_c, 2)
+        ],
+        'historical_data_available' => !empty($raw),
+        'historical_months' => $hist_months,
+        'overall_total_energy' => round($ot_e, 3),
+        'overall_total_cost' => round($ot_c, 2),
+        'monitoring_start_date' => $msd,
+        'monthly_cost_est' => round($cm_c_tot, 2),
+        'error' => empty($live['errors']) ? null : implode('; ', $live['errors'])
+    ];
+}
+
+/**
+ * Wrapper to update data file (cron or manual)
+ *
+ * @param int $retry_count
+ * @param string|null $target_date
+ * @return bool
+ */
+function esphomepm_update_data_file(int $retry_count = 0, string $target_date = null): bool {
+    return update_power_consumption_data($retry_count, $target_date);
+}

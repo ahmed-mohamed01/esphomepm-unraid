@@ -115,53 +115,8 @@ $overall_total_cost += $daily_cost;
 $day_of_month = (int)date('j');
 $average_daily_energy = $day_of_month ? round($current_month_energy_total / $day_of_month, 3) : 0.0;
 
-// Prepare response
-$response_data = [
-    // Live data
-    'power' => $power,
-    'today_energy' => $daily_energy,
-    'daily_cost' => round($daily_cost, 2),
-    
-    // Configuration
-    'costs_price' => $costs_price,
-    'costs_unit' => $costs_unit,
-    
-    // Current month data
-    'current_month_energy_completed_days' => round($current_month_energy_completed_days, 3),
-    'current_month_cost_completed_days' => round($current_month_cost_completed_days, 2),
-    'current_month_energy_total' => round($current_month_energy_total, 3), // Including today
-    'current_month_cost_total' => round($current_month_cost_total, 2),    // Including today
-    
-    // Average daily consumption
-    'average_daily_energy' => $average_daily_energy,
-
-    // Add current month object for history display
-    'current_month' => [
-        'month_year' => isset($historical_data['current_month']['month_year']) ? $historical_data['current_month']['month_year'] : date('Y-m'),
-        'total_energy_kwh_completed_days' => round($current_month_energy_completed_days, 3),
-        'total_cost_completed_days' => round($current_month_cost_completed_days, 2)
-    ],
-    
-    // Debug information
-    'debug_info' => [
-        'has_historical_data' => $historical_data_available,
-        'current_month_from_file' => isset($historical_data['current_month']) ? $historical_data['current_month'] : null,
-        'timestamp' => date('Y-m-d H:i:s')
-    ],
-    
-    // Historical and overall data
-    'historical_data_available' => $historical_data_available,
-    'historical_months' => $historical_months,
-    'overall_total_energy' => round($overall_total_energy, 3),
-    'overall_total_cost' => round($overall_total_cost, 2),
-    'monitoring_start_date' => $monitoring_start_date,
-    
-    // For backward compatibility
-    'monthly_cost_est' => round($current_month_cost_total, 2), // Now using actual data instead of daily*30
-    
-    // Error information
-    'error' => empty($error_messages) ? null : implode('; ', $error_messages)
-];
-
-echo json_encode($response_data);
+// Build and output unified summary
+$response = esphomepm_build_summary($config);
+echo json_encode($response);
+exit;
 ?>
