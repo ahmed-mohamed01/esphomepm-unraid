@@ -31,7 +31,7 @@ $mytiles['esphomepm']['column1'] = <<<HTML
   <div class="esphomepm-grid">
     <div></div><div></div><div>Day:</div><div>Month:</div><div>Total:</div>
 
-    <div class="rowlabel">Start date:</div>
+    <div class="rowlabel">Monitoring since:</div>
     <div class="esphomepm-monitoring-date">--</div>
     <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-day">--</span> kWh</div>
     <div><i class="fa fa-bolt esphomepm-energy-icon"></i> <span class="esphomepm-energy-month">--</span> kWh</div>
