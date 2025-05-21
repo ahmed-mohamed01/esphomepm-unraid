@@ -18,9 +18,8 @@ $mytiles['esphomepm']['column1'] = <<<HTML
 <!-- headline (row-1) -->
 <tr><td>
   <i class="fa fa-plug icon"></i>
-  <div class="section">$pluginname<span><br>
-    <span class="esphomepm-current-power">0</span> W
-  </span></div>
+  <div class="section">$pluginname</div>
+  <div class="section"><span class="esphomepm-current-power">--</span></div>
   <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings">
     <i class="fa fa-fw fa-cog control"></i>
   </a>
@@ -74,7 +73,6 @@ $(function(){
     $.getJSON('/plugins/esphomepm/status.php',function(data){
       if(!data)return;
 
-      $('.esphomepm-current-power').text( fmt(data.power,0) );
       $('.esphomepm-monitoring-date').text(data.monitoring_start_date);
       $('.esphomepm-avg-power').text(fmt(data.power,0)+' W');
       $('.esphomepm-energy-day')  .text(fmt(data.today_energy,3));
@@ -84,6 +82,9 @@ $(function(){
       $('.esphomepm-cost-day')  .text( fmt(data.daily_cost,2) );
       $('.esphomepm-cost-month').text( fmt(data.current_month_cost_total ?? data.monthly_cost_est,2) );
       $('.esphomepm-cost-total').text( fmt(data.overall_total_cost,2) );
+
+      // header summary in default power span
+      $('.esphomepm-current-power').text(`This server has cost you $${fmt(data.overall_total_cost,2)} (${fmt(data.overall_total_energy,3)} kWh since ${data.monitoring_start_date})`);
 
       if(data.cost_unit) $('.esphomepm-cost-unit').text(data.cost_unit);
     });
