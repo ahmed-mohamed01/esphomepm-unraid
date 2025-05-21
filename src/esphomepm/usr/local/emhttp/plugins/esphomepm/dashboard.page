@@ -1,46 +1,90 @@
-{{ Menu="Dashboard:0" }}
-{{ Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'7.0.0','>=') && !empty(parse_ini_file('/boot/config/plugins/esphomepm/esphomepm.cfg')['DEVICE_IP'])" }}
+Menu="Dashboard:0"
+Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'7.0.0','>=') && !empty(parse_ini_file('/boot/config/plugins/esphomepm/esphomepm.cfg')['DEVICE_IP'])"
 ---
 <?php
-require_once(__DIR__ . '/include/functions.php');
+/*  ESPHome Power Monitor – Dashboard tile
+ *  place in:  /usr/local/emhttp/plugins/esphomepm/dashboard.page
+ */
+require_once('/usr/local/emhttp/plugins/esphomepm/include/functions.php');
 
-$cfg = esphomepm_load_config();
-$pluginname = 'ESPHome Power Monitor';
-$unit = $cfg['COSTS_UNIT'] ?? 'GBP';
+$cfg          = esphomepm_load_config();
+$pluginname   = 'ESPHome Power Monitor';
+$currencyUnit = $cfg['COSTS_UNIT'] ?? 'GBP';
 
+/* build the tile --------------------------------------------------------- */
 $mytiles['esphomepm']['column1'] = <<<HTML
 <tbody id="esphomepm" title="$pluginname">
+
+<!-- headline (row-1) -->
 <tr><td>
-  <i class="fa fa-plug icon"></i> $pluginname
-  <a href="/Settings/ESPHomePMSettings" title="Settings"><i class="fa fa-fw fa-cog control"></i></a>
+  <i class="fa fa-plug icon"></i>
+  <div class="section">$pluginname<span><br>
+    <span class="esphomepm-current-power">0</span> W
+  </span></div>
+  <a href="/Settings/ESPHomePMSettings" title="Go to ESPHome Power Monitor settings">
+    <i class="fa fa-fw fa-cog control"></i>
+  </a>
 </td></tr>
-<tr><td class="esphomepm-subtitle">
-  Monitoring since <span class="esphomepm-monitoring"></span>
-  &nbsp;&nbsp; Today: <i class="fa fa-bolt"></i> <span class="esphomepm-energy-day">--</span>kWh &nbsp; $<span class="esphomepm-cost-day">--</span> {$unit}
-  &nbsp;&nbsp; Monthly: <i class="fa fa-bolt"></i> <span class="esphomepm-energy-month">--</span>kWh &nbsp; $<span class="esphomepm-cost-month">--</span> {$unit}
-  &nbsp;&nbsp; Total: <i class="fa fa-bolt"></i> <span class="esphomepm-energy-total">--</span>kWh &nbsp; $<span class="esphomepm-cost-total">--</span> {$unit}
+
+<!-- 3×3 summary – CSS grid, not a table -->
+<tr><td>
+  <div class="esphomepm-grid">
+    <div></div>                       <div>Day</div>   <div>Month</div> <div>Total</div>
+
+    <div class="rowlabel">Energy (kWh)</div>
+    <div class="esphomepm-energy-day">--</div>
+    <div class="esphomepm-energy-month">--</div>
+    <div class="esphomepm-energy-total">--</div>
+
+    <div class="rowlabel">Cost (<span class="esphomepm-cost-unit">$currencyUnit</span>)</div>
+    <div class="esphomepm-cost-day">--</div>
+    <div class="esphomepm-cost-month">--</div>
+    <div class="esphomepm-cost-total">--</div>
+  </div>
 </td></tr>
+
 </tbody>
 HTML;
 ?>
+
 <style>
-.esphomepm-subtitle { font-size: 0.9em; color: #ccc; line-height: 1.4em; }
-.esphomepm-subtitle .fa { margin: 0 4px; }
+/* grid that mimics a 3×3 table but avoids extra <tbody> */
+.esphomepm-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr 1fr;
+  row-gap:4px; column-gap:6px;
+  font-size:.9em; text-align:center;
+  margin-top:6px;
+}
+.esphomepm-grid .rowlabel{font-weight:600;text-align:left;}
+.esphomepm-grid>div:nth-child(-n+4){font-weight:600;}     /* header row */
 </style>
+
 <script>
 $(function(){
-  function fmt(v,d){return v!=null?parseFloat(v).toFixed(d):'--';}
+  function fmt(v,d){return(v!==undefined&&v!==null)?parseFloat(v).toFixed(d):'--';}
+
   function refresh(){
-    $.getJSON('/plugins/esphomepm/status.php', function(data){ if(!data) return;
-      $('.esphomepm-monitoring').text(data.monitoring_start_date);
-      $('.esphomepm-energy-day').text(fmt(data.today_energy,3));
-      $('.esphomepm-cost-day').text(fmt(data.daily_cost,2));
-      $('.esphomepm-energy-month').text(fmt(data.current_month_energy_total,3));
-      $('.esphomepm-cost-month').text(fmt(data.current_month_cost_total ?? data.monthly_cost_est,2));
-      $('.esphomepm-energy-total').text(fmt(data.overall_total_energy,3));
-      $('.esphomepm-cost-total').text(fmt(data.overall_total_cost,2));
+    $.getJSON('/plugins/esphomepm/status.php',function(data){
+      if(!data)return;
+
+      $('.esphomepm-current-power').text( fmt(data.power,0) );
+
+      $('.esphomepm-energy-day')  .text( fmt(data.today_energy,3) );
+      $('.esphomepm-energy-month').text( fmt(data.current_month_energy_total ??
+                                             data.current_month_energy_completed_days,3) );
+      $('.esphomepm-energy-total').text( fmt(data.overall_total_energy,3) );
+
+      $('.esphomepm-cost-day')  .text( fmt(data.daily_cost,2) );
+      $('.esphomepm-cost-month').text( fmt(data.current_month_cost_total ??
+                                           data.monthly_cost_est,2) );
+      $('.esphomepm-cost-total').text( fmt(data.overall_total_cost,2) );
+
+      if(data.cost_unit) $('.esphomepm-cost-unit').text(data.cost_unit);
     });
   }
-  refresh(); setInterval(refresh,10000);
+
+  refresh();
+  setInterval(refresh,10000);
 });
 </script>
