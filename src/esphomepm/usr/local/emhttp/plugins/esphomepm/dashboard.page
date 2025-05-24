@@ -79,7 +79,7 @@ $(function(){
       if(!data)return;
 
       $('.esphomepm-monitoring-date').text(data.monitoring_start_date);
-      $('.esphomepm-avg-power').text(fmt(data.power,0)+' W');
+      $('.esphomepm-avg-power').text(fmt(data.avg_power,0)+' W');
       $('.esphomepm-energy-day').text(fmt(data.today_energy,3));
       $('.esphomepm-energy-month').text(fmt(data.current_month_energy_total ?? data.current_month_energy_completed_days,3));
       $('.esphomepm-energy-total').text(fmt(data.overall_total_energy,3));
