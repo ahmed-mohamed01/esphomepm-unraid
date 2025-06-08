@@ -59,9 +59,7 @@ if (($tab == 'monitoring' || $tab == 'history') && !$showMonitorTab) {
 
 <?php if ($tab == 'settings'): ?>
 <!-- Settings Tab Content -->
-<form markdown="1" method="POST" action="/update.php" target="progressFrame">
-  <input type="hidden" name="#file" value="esphomepm/esphomepm.cfg">
-  
+<form markdown="1" method="POST" action="/plugins/esphomepm/UpdateSettings.php" target="progressFrame">
   <table class="settings">
     <tr>
       <td>Device Name:</td>

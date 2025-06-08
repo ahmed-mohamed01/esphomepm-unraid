@@ -21,7 +21,7 @@ $mytiles['esphomepm']['column1'] = <<<HTML
   <div class="section">
     $pluginname<br>
     <span class="esphomepm-summary-text">
-      This server has cost you $<span class="esphomepm-cost-total-head">--</span>
+      This server has cost you <span class="esphomepm-cost-unit"><?= $currencyUnit ?></span><span class="esphomepm-cost-total-head">--</span>
       (<span class="esphomepm-energy-total-head">--</span> kWh) since <span class="esphomepm-monitoring-date-head">--</span>
     </span>
   </div>
@@ -43,9 +43,9 @@ $mytiles['esphomepm']['column1'] = <<<HTML
 
     <div class="rowlabel">Average Power:</div>
     <div class="esphomepm-avg-power">-- W</div>
-    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-day">--</span> $currencyUnit</div>
-    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-month">--</span> $currencyUnit</div>
-    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-total">--</span> $currencyUnit</div>
+    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-day">--</span> <span class="esphomepm-cost-unit"><?= $currencyUnit ?></span></div>
+    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-month">--</span> <span class="esphomepm-cost-unit"><?= $currencyUnit ?></span></div>
+    <div><i class="fa fa-usd esphomepm-cost-icon"></i> <span class="esphomepm-cost-total">--</span> <span class="esphomepm-cost-unit"><?= $currencyUnit ?></span></div>
   </div>
 </td></tr>
 
@@ -93,7 +93,7 @@ $(function(){
       $('.esphomepm-energy-total-head').text(fmt(data.overall_total_energy,3));
       $('.esphomepm-monitoring-date-head').text(data.monitoring_start_date);
 
-      if(data.cost_unit) $('.esphomepm-cost-unit').text(data.cost_unit);
+      if(data.costs_unit) $('.esphomepm-cost-unit').text(data.costs_unit);
     });
   }
 
