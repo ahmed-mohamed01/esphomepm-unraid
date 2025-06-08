@@ -224,9 +224,8 @@
     # Clean up the plugin directories
     rm -rf &emhttp;
     
-    # Remove any temporary files
-    rm -f /tmp/esphomepm_cache.json
-    rm -f /tmp/esphomepm_*.log
+    # Remove component-specific PHP error logs from persistent storage
+    rm -f /boot/config/plugins/&name;/esphomepm_*.log
     
     # Remove cron job
     rm -f /etc/cron.d/esphomepm

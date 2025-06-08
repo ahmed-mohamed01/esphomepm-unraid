@@ -1,109 +1,31 @@
 <?php
-require_once __DIR__ . '/include/functions.php';
+require_once __DIR__ . '/include/bootstrap.php'; // Use bootstrap for all utilities
 
+// Initialize script, load config. True for $jsonResponse means esphomepm_init_script will call esphomepm_set_json_headers.
 $config = esphomepm_init_script('status', true);
 
-$device_ip = $config['DEVICE_IP'] ?? "";
-$costs_price = $config['COSTS_PRICE'] ?? 0.0;
-$costs_unit = $config['COSTS_UNIT'] ?? "";
-$power_sensor_path = $config['POWER_SENSOR_PATH'] ?? 'power';
-$daily_energy_sensor_path = $config['DAILY_ENERGY_SENSOR_PATH'] ?? 'daily_energy';
-
+// Handle graph point request specifically
 if (isset($_GET['graph_point']) && $_GET['graph_point'] === 'true') {
+    $device_ip = $config['DEVICE_IP'] ?? "";
     if (empty($device_ip)) {
-        esphomepm_log_error("Graph point request with missing device IP", 'WARNING', 'status');
+        // Headers already set by esphomepm_init_script, but for clarity, ensure this specific path also guarantees JSON response type.
+        // No need to call esphomepm_set_json_headers() again if init_script handled it.
         echo json_encode(['power' => 0, 'error' => 'ESPHome Device IP missing']);
         exit;
     }
-    $power_data = esphomepm_get_sensor_value("power", $device_ip, 1); // Shorter timeout for graph point
-    echo json_encode(['power' => $power_data['value'], 'error' => $power_data['error']]);
+    $power_sensor_path = $config['POWER_SENSOR_PATH'] ?? 'power';
+    // Use esphomepm_fetch_sensor_data for consistency and full error/value pair
+    $power_data = esphomepm_fetch_sensor_data($device_ip, $power_sensor_path, 1, true); 
+    echo json_encode(['power' => $power_data['value'] ?? 0, 'error' => $power_data['error']]);
     exit;
 }
 
-if (empty($device_ip)) {
-    echo json_encode([
-        'power' => 0, 'today_energy' => 0,
-        'daily_cost' => 0, 'monthly_cost_est' => 0,
-        'costs_price' => $costs_price, 'costs_unit' => $costs_unit,
-        'historical_data_available' => false,
-        'error' => 'ESPHome Device IP missing'
-    ]);
-    exit;
-}
+// Main data request: all logic is now consolidated in esphomepm_build_summary
+// This function (from ui_utils.php) handles device IP checks, live data fetching, 
+// historical data loading, and error aggregation.
+$summary_data = esphomepm_build_summary($config);
 
-$error_messages = [];
-
-$power_result = esphomepm_get_sensor_value($power_sensor_path, $device_ip);
-$daily_energy_result = esphomepm_get_sensor_value($daily_energy_sensor_path, $device_ip);
-
-$power = 0;
-if (isset($power_result['value'])) {
-    $power = $power_result['value'];
-}
-if (isset($power_result['error']) && $power_result['error'] !== null) {
-    $error_messages[] = "Power: " . $power_result['error'];
-}
-
-$daily_energy = 0;
-if (isset($daily_energy_result['value'])) {
-    $daily_energy = $daily_energy_result['value'];
-}
-if (isset($daily_energy_result['error']) && $daily_energy_result['error'] !== null) {
-    $error_messages[] = "Daily Energy: " . $daily_energy_result['error'];
-}
-
-$costs_price_numeric = is_numeric($costs_price) ? (float)$costs_price : 0.0; // Ensure costs_price is numeric
-$daily_cost = $daily_energy * $costs_price_numeric;
-
-$historical_data = esphomepm_load_historical_data();
-$historical_data_available = ($historical_data !== null);
-
-$current_month_energy_completed_days = 0.0;
-$current_month_cost_completed_days = 0.0;
-$historical_months = [];
-$overall_total_energy = 0.0;
-$overall_total_cost = 0.0;
-$monitoring_start_date = date('Y-m-d'); // Default to today if no historical data
-
-if ($historical_data_available) {
-    if (isset($historical_data['current_month']['total_energy_kwh_completed_days'])) {
-        $current_month_energy_completed_days = (float)$historical_data['current_month']['total_energy_kwh_completed_days'];
-    }
-    if (isset($historical_data['current_month']['total_cost_completed_days'])) {
-        $current_month_cost_completed_days = (float)$historical_data['current_month']['total_cost_completed_days'];
-    }
-    
-    if (isset($historical_data['historical_months']) && is_array($historical_data['historical_months'])) {
-        $historical_months = $historical_data['historical_months'];
-    }
-    
-    if (isset($historical_data['overall_totals']['total_energy_kwh_all_time'])) {
-        $overall_total_energy = (float)$historical_data['overall_totals']['total_energy_kwh_all_time'];
-    }
-    if (isset($historical_data['overall_totals']['total_cost_all_time'])) {
-        $overall_total_cost = (float)$historical_data['overall_totals']['total_cost_all_time'];
-    }
-    if (isset($historical_data['overall_totals']['monitoring_start_date'])) {
-        $monitoring_start_date = $historical_data['overall_totals']['monitoring_start_date'];
-    }
-}
-
-$current_month_energy_total = $current_month_energy_completed_days + $daily_energy;
-$current_month_cost_total = $current_month_cost_completed_days + $daily_cost;
-
-$overall_total_energy += $daily_energy;
-$overall_total_cost += $daily_cost;
-
-$day_of_month = (int)date('j');
-$average_daily_energy = $day_of_month ? round($current_month_energy_total / $day_of_month, 3) : 0.0;
-
-$now = new DateTime();
-$midnight = new DateTime('today');
-$elapsed = $now->getTimestamp() - $midnight->getTimestamp();
-$hours_elapsed = $elapsed > 0 ? $elapsed / 3600 : 1;
-$avg_power = ($daily_energy * 1000) / $hours_elapsed;
-$response = esphomepm_build_summary($config);
-$response['avg_power'] = round($avg_power);  // Watts
-echo json_encode($response);
+// Output the summary. Headers were set by esphomepm_init_script.
+echo json_encode($summary_data);
 exit;
 ?>

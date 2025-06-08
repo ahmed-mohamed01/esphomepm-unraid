@@ -5,9 +5,9 @@ Cond="version_compare(parse_ini_file('/etc/unraid-version')['version'],'7.0.0','
 /*  ESPHome Power Monitor – Dashboard tile
  *  place in:  /usr/local/emhttp/plugins/esphomepm/dashboard.page
  */
-require_once('/usr/local/emhttp/plugins/esphomepm/include/functions.php');
+require_once('/usr/local/emhttp/plugins/esphomepm/include/bootstrap.php');
 
-$cfg          = esphomepm_load_config();
+$cfg          = esphomepm_init_script('dashboard', false);
 $pluginname   = 'ESPHome Power Monitor';
 $currencyUnit = $cfg['COSTS_UNIT'] ?? 'GBP';
 
