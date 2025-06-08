@@ -41,24 +41,21 @@ function update_power_consumption_data($retry_count = 0, $target_date = null) {
                 'energy_kwh' => $final_month_total_energy,
                 'cost' => $final_month_total_cost
             ];
+            // Sort historical months to keep them in order
+            ksort($power_data['historical_months']);
         }
 
-        // Reset the current month's data, keeping only records from the *new* actual current month
-        $new_daily_records = [];
-        if (isset($power_data['current_month']['daily_records']) && is_array($power_data['current_month']['daily_records'])) {
-            foreach ($power_data['current_month']['daily_records'] as $date => $record) {
-                if (substr($date, 0, 7) === $actual_current_month_year) {
-                    $new_daily_records[$date] = $record; // Keep record if it matches new month (unlikely but safe)
-                }
-            }
-        }
-        
+        // Reset the current month's data, clearing out old daily records
         $power_data['current_month'] = [
             'month_year' => $actual_current_month_year,
-            'daily_records' => $new_daily_records,
+            'daily_records' => [], // Start with a clean slate for the new month
             'total_energy_kwh_completed_days' => 0.0,
             'total_cost_completed_days' => 0.0
         ];
+        
+        // Immediately save the data after rollover before fetching new sensor data
+        esphomepm_save_json_data(ESPHOMPM_DATA_FILE, $power_data);
+        
     } else {
         // If not a rollover, still perform cleanup of stale records from previous months.
         if (isset($power_data['current_month']['daily_records']) && is_array($power_data['current_month']['daily_records'])) {

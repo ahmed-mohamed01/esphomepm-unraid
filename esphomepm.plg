@@ -2,7 +2,7 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name      "esphomepm">
 <!ENTITY author    "Ahmed Mohamed">
-<!ENTITY version   "2025.06.08.6">
+<!ENTITY version   "2025.06.08.7">
 <!ENTITY launch    "Settings/ESPHomePMSettings">
 <!ENTITY gitURL    "https://raw.githubusercontent.com/ahmed-mohamed01/&name;-unraid/fix/monthly-data">
 <!ENTITY pluginURL "&gitURL;/&name;.plg">
@@ -14,6 +14,8 @@
 <PLUGIN name="&name;" author="&author;" version="&version;" icon="esphomepm.png" launch="&launch;" pluginURL="&pluginURL;">
 <CHANGES>
 ##&name;
+###2025.06.08.7
+- fix: fixed issue with historical months not being displayed correctly
 ###2025.06.08.6
 -fix: corrected cron job to run at 23:58 and retry at 23:59 if needed.
 ###2025.06.08.5

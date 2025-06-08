@@ -102,15 +102,33 @@ function esphomepm_load_json_data($file_path) {
  * @return bool True on success, false on failure
  */
 function esphomepm_save_json_data($file_path, $data) {
+    esphomepm_log_error("Attempting to save data to $file_path.", 'INFO', 'json_data');
+    
     $json_output = json_encode($data, JSON_PRETTY_PRINT);
     if ($json_output === false) {
         esphomepm_log_error("JSON encode error: " . json_last_error_msg(), 'ERROR', 'json_data');
         return false;
     }
-    if (file_put_contents($file_path, $json_output) === false) {
+    
+    // Log the data that is about to be written
+    esphomepm_log_error("Data to be written: " . $json_output, 'INFO', 'json_data');
+
+    // Attempt to write the file
+    $result = file_put_contents($file_path, $json_output);
+
+    if ($result === false) {
         esphomepm_log_error("Failed to write data file: $file_path", 'ERROR', 'json_data');
         return false;
     }
+
+    // Verify the write operation
+    $new_content = file_get_contents($file_path);
+    if ($new_content !== $json_output) {
+        esphomepm_log_error("Write verification FAILED for $file_path. File content does not match what was written.", 'CRITICAL', 'json_data');
+        return false;
+    }
+    
+    esphomepm_log_error("Successfully saved and verified data to $file_path.", 'INFO', 'json_data');
     return true;
 }
 

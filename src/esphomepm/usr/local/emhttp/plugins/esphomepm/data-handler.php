@@ -12,10 +12,13 @@ if (basename(__FILE__) == basename($_SERVER["SCRIPT_FILENAME"])) {
     $current_hour = (int)date('H');
     $current_minute = (int)date('i');
 
-    if ($retry === 0) {
-        // esphomepm_validate_cron_time() is from core_utils.php via bootstrap
-        if (!esphomepm_validate_cron_time()) {
-            exit(0); 
+    // Skip time validation if running from CLI (manual execution)
+    if (php_sapi_name() !== 'cli') {
+        if ($retry === 0) {
+            // esphomepm_validate_cron_time() is from core_utils.php via bootstrap
+            if (!esphomepm_validate_cron_time()) {
+                exit(0); 
+            }
         }
     }
     
