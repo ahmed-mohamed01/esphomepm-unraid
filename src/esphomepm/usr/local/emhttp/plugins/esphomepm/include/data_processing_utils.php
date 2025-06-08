@@ -27,25 +27,9 @@ function update_power_consumption_data($retry_count = 0, $target_date = null) {
 
     // --- Start of Self-Healing and Month Rollover Logic ---
     $actual_current_month_year = date('Y-m');
-
-    // First, purge any daily records that do not belong to the actual current month.
-    if (isset($power_data['current_month']['daily_records']) && is_array($power_data['current_month']['daily_records'])) {
-        $new_daily_records = [];
-        foreach ($power_data['current_month']['daily_records'] as $date => $record) {
-            if (substr($date, 0, 7) === $actual_current_month_year) {
-                $new_daily_records[$date] = $record;
-            } else {
-                esphomepm_log_error("Discarding stale daily record from a past month: $date", 'INFO', 'data_processing');
-            }
-        }
-        // If the number of records changed, we have modified the data.
-        if (count($new_daily_records) !== count($power_data['current_month']['daily_records'])) {
-             $power_data['current_month']['daily_records'] = $new_daily_records;
-        }
-    }
-    
-    // Now, handle the main month rollover if the file is still pointing to a previous month.
     $file_month_year = $power_data['current_month']['month_year'] ?? date('Y-m');
+
+    // Handle the main month rollover first if the file is pointing to a previous month.
     if ($file_month_year < $actual_current_month_year) {
         esphomepm_log_error("Month rollover detected. Archiving month: $file_month_year", 'INFO', 'data_processing');
         
@@ -59,12 +43,39 @@ function update_power_consumption_data($retry_count = 0, $target_date = null) {
             ];
         }
 
+        // Reset the current month's data, keeping only records from the *new* actual current month
+        $new_daily_records = [];
+        if (isset($power_data['current_month']['daily_records']) && is_array($power_data['current_month']['daily_records'])) {
+            foreach ($power_data['current_month']['daily_records'] as $date => $record) {
+                if (substr($date, 0, 7) === $actual_current_month_year) {
+                    $new_daily_records[$date] = $record; // Keep record if it matches new month (unlikely but safe)
+                }
+            }
+        }
+        
         $power_data['current_month'] = [
             'month_year' => $actual_current_month_year,
-            'daily_records' => $power_data['current_month']['daily_records'] ?? [],
+            'daily_records' => $new_daily_records,
             'total_energy_kwh_completed_days' => 0.0,
             'total_cost_completed_days' => 0.0
         ];
+    } else {
+        // If not a rollover, still perform cleanup of stale records from previous months.
+        if (isset($power_data['current_month']['daily_records']) && is_array($power_data['current_month']['daily_records'])) {
+            $new_daily_records = [];
+            $records_changed = false;
+            foreach ($power_data['current_month']['daily_records'] as $date => $record) {
+                if (substr($date, 0, 7) === $actual_current_month_year) {
+                    $new_daily_records[$date] = $record;
+                } else {
+                    esphomepm_log_error("Discarding stale daily record from a past month: $date", 'INFO', 'data_processing');
+                    $records_changed = true;
+                }
+            }
+            if ($records_changed) {
+                 $power_data['current_month']['daily_records'] = $new_daily_records;
+            }
+        }
     }
     // --- End of Self-Healing and Month Rollover Logic ---
 
